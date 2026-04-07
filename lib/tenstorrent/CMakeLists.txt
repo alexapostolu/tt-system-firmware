@@ -11,5 +11,6 @@ add_subdirectory_ifdef(CONFIG_TT_BIST bist)
 add_subdirectory_ifdef(CONFIG_TT_BOOT_BANNER banner)
 add_subdirectory_ifdef(CONFIG_TT_BOOT_FS boot_fs)
 add_subdirectory_ifdef(CONFIG_TT_EVENT event)
+add_subdirectory_ifdef(CONFIG_TT_GRENDEL_NOC2AXI grendel_noc2axi)
 add_subdirectory_ifdef(CONFIG_TT_JTAG_BOOTROM jtag_bootrom)
 # zephyr-keep-sorted-stop

@@ -1,0 +1,8 @@
+common:
+  tags:
+    - smoke
+    - noc2axi
+tests:
+  boards.grendel_smc.noc2axi.basic:
+    platform_allow:
+      - tt_grendel_smc

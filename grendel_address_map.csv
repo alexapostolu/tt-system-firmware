@@ -1,0 +1,309 @@
+,System Physical Address,,Local Chiplet Interpretation,,,,,Quasar NOC & SMN,,Is this used in Package?,,PCIE TLB setting for EP (Q1.S7),,Comment
+,Start Address,Size,Endpoint ID,Chiplet,Tile ID,Space,Chiplet Local Address,NOC Mask ID,SMN Mask ID,Q1.S7,Q1.A1,PCIE TLB,Entry ID,Description
+Local Alias,0x0_0000_0000_0000,,,,,Local Alias,,,,,,,,
+,0x0_0000_C000_0000,1GB,local,local,local,Local Alias,0x0_0000_0000_0000,13,,Yes,Yes,,,"Local loopback, local alias"
+Athena Conflg Space,0x0_0010_0000_0000,4GB,16,Athena[0],0,Config,0x0_0000_0000_0000,0,0,,Yes,,,Athena MMR Space
+,0x0_0011_0000_0000,4GB,17,Athena[1],0,Config,0x0_0000_0000_0000,0,0,,,,,
+Keraunos Config Space,0x0_0012_0000_0000,64MB,32,Keraunos[0],0,Config,0x0_0000_0000_0000,1,1,Yes,Yes,TLBApp0 (BAR0),68-71,SEP / SMC (Keraunos remap table used internally)
+,0x0_0012_0400_0000,64MB,33,Keraunos[0],0,Config,0x0_0000_2000_0000,1,1,Yes,Yes,TLBApp0 (BAR0),72-75,HSIO tile 0 (Keraunos remap table used internally)
+,0x0_0012_0800_0000,64MB,34,Keraunos[0],1,Config,0x0_0000_2400_0000,1,1,Yes,Yes,TLBApp0 (BAR0),76-79,HSIO tile 1 (Keraunos remap table used internally)
+,0x0_0012_0C00_0000,64MB,35,Keraunos[0],2,Config,0x0_0000_2800_0000,1,1,Yes,Yes,TLBApp0 (BAR0),80-83,HSIO tile 2 (Keraunos remap table used internally)
+,0x0_0012_1000_0000,64MB,36,Keraunos[0],3,Config,0x0_0000_2C00_0000,1,1,Yes,Yes,TLBApp0 (BAR0),84-87,HSIO tile 3 (Keraunos remap table used internally)
+,0x0_0012_1400_0000,64MB,37,Keraunos[0],4,Config,0x0_0000_3000_0000,1,1,Yes,Yes,TLBApp0 (BAR0),88-91,HSIO tile 4 (Keraunos remap table used internally)
+,0x0_0012_1800_0000,64MB,38,Keraunos[0],0,Config,0x0_0000_1800_0000,1,1,Yes,Yes,TLBApp0 (BAR0),92-95,PCIE (Keraunos remap table is used internally)
+,0x0_0012_1C00_0000,64MB,39,Keraunos[0],0,Config,0x0_0000_1000_0000,1,1,Yes,Yes,TLBApp0 (BAR0),96-99,"SMN fabric, D2D, etc… (Keraunos remap table is internally used)"
+,0x0_0012_2000_0000,64MB,40,Keraunos[1],0,Config,0x0_0000_0000_0000,1,1,,,,,
+,0x0_0012_2400_0000,64MB,41,Keraunos[1],0,Config,0x0_0000_2000_0000,1,1,,,,,
+,0x0_0012_2800_0000,64MB,42,Keraunos[1],1,Config,0x0_0000_2400_0000,1,1,,,,,
+,0x0_0012_2C00_0000,64MB,43,Keraunos[1],2,Config,0x0_0000_2800_0000,1,1,,,,,
+,0x0_0012_3000_0000,64MB,44,Keraunos[1],3,Config,0x0_0000_2C00_0000,1,1,,,,,
+,0x0_0012_3400_0000,64MB,45,Keraunos[1],4,Config,0x0_0000_3000_0000,1,1,,,,,
+,0x0_0012_3800_0000,64MB,46,Keraunos[1],0,Config,0x0_0000_1800_0000,1,1,,,,,
+,0x0_0012_3C00_0000,64MB,47,Keraunos[1],0,Config,0x0_0000_1000_0000,1,1,,,,,
+Mimir SRAM Space,0x0_0012_8000_0000,4MB,64,Mimir[0],0,CCE,0x0_0000_4000_0000,2,2,Yes,Yes,TLBApp0 (BAR0),64,
+,0x0_0012_8040_0000,4MB,65,Mimir[0],1,CCE,0x0_0000_4040_0000,2,2,Yes,Yes,TLBApp0 (BAR0),64,
+,0x0_0012_8080_0000,4MB,66,Mimir[1],0,CCE,0x0_0000_4000_0000,2,2,Yes,Yes,TLBApp0 (BAR0),64,
+,0x0_0012_80C0_0000,4MB,67,Mimir[1],1,CCE,0x0_0000_4040_0000,2,2,Yes,Yes,TLBApp0 (BAR0),64,
+,0x0_0012_8100_0000,4MB,68,Mimir[2],0,CCE,0x0_0000_4000_0000,2,2,Yes,Yes,TLBApp0 (BAR0),65,
+,0x0_0012_8140_0000,4MB,69,Mimir[2],1,CCE,0x0_0000_4040_0000,2,2,Yes,Yes,TLBApp0 (BAR0),65,
+,0x0_0012_8180_0000,4MB,70,Mimir[3],0,CCE,0x0_0000_4000_0000,2,2,Yes,Yes,TLBApp0 (BAR0),65,
+,0x0_0012_81C0_0000,4MB,71,Mimir[3],1,CCE,0x0_0000_4040_0000,2,2,Yes,Yes,TLBApp0 (BAR0),65,
+,0x0_0012_8200_0000,4MB,72,Mimir[4],0,CCE,0x0_0000_4000_0000,2,2,Yes,Yes,TLBApp0 (BAR0),66,
+,0x0_0012_8240_0000,4MB,73,Mimir[4],1,CCE,0x0_0000_4040_0000,2,2,Yes,Yes,TLBApp0 (BAR0),66,
+,0x0_0012_8280_0000,4MB,74,Mimir[5],0,CCE,0x0_0000_4000_0000,2,2,Yes,Yes,TLBApp0 (BAR0),66,
+,0x0_0012_82C0_0000,4MB,75,Mimir[5],1,CCE,0x0_0000_4040_0000,2,2,Yes,Yes,TLBApp0 (BAR0),66,
+,0x0_0012_8300_0000,4MB,76,Mimir[6],0,CCE,0x0_0000_4000_0000,2,2,Yes,Yes,TLBApp0 (BAR0),67,
+,0x0_0012_8340_0000,4MB,77,Mimir[6],1,CCE,0x0_0000_4040_0000,2,2,Yes,Yes,TLBApp0 (BAR0),67,
+,0x0_0012_8380_0000,4MB,78,Mimir[7],0,CCE,0x0_0000_4000_0000,2,2,Yes,Yes,TLBApp0 (BAR0),67,
+,0x0_0012_83C0_0000,4MB,79,Mimir[7],1,CCE,0x0_0000_4040_0000,2,2,Yes,Yes,TLBApp0 (BAR0),67,
+,0x0_0012_8400_0000,4MB,80,Mimir[8],0,CCE,0x0_0000_4000_0000,2,2,,,,,
+,0x0_0012_8440_0000,4MB,81,Mimir[8],1,CCE,0x0_0000_4040_0000,2,2,,,,,
+,0x0_0012_8480_0000,4MB,82,Mimir[9],0,CCE,0x0_0000_4000_0000,2,2,,,,,
+,0x0_0012_84C0_0000,4MB,83,Mimir[9],1,CCE,0x0_0000_4040_0000,2,2,,,,,
+,0x0_0012_8500_0000,4MB,84,Mimir[10],0,CCE,0x0_0000_4000_0000,2,2,,,,,
+,0x0_0012_8540_0000,4MB,85,Mimir[10],1,CCE,0x0_0000_4040_0000,2,2,,,,,
+,0x0_0012_8580_0000,4MB,86,Mimir[11],0,CCE,0x0_0000_4000_0000,2,2,,,,,
+,0x0_0012_85C0_0000,4MB,87,Mimir[11],1,CCE,0x0_0000_4040_0000,2,2,,,,,
+,0x0_0012_8600_0000,4MB,88,Mimir[12],0,CCE,0x0_0000_4000_0000,2,2,,,,,
+,0x0_0012_8640_0000,4MB,89,Mimir[12],1,CCE,0x0_0000_4040_0000,2,2,,,,,
+,0x0_0012_8680_0000,4MB,90,Mimir[13],0,CCE,0x0_0000_4000_0000,2,2,,,,,
+,0x0_0012_86C0_0000,4MB,91,Mimir[13],1,CCE,0x0_0000_4040_0000,2,2,,,,,
+,0x0_0012_8700_0000,4MB,92,Mimir[14],0,CCE,0x0_0000_4000_0000,2,2,,,,,
+,0x0_0012_8740_0000,4MB,93,Mimir[14],1,CCE,0x0_0000_4040_0000,2,2,,,,,
+,0x0_0012_8780_0000,4MB,94,Mimir[15],0,CCE,0x0_0000_4000_0000,2,2,,,,,
+,0x0_0012_87C0_0000,4MB,95,Mimir[15],1,CCE,0x0_0000_4040_0000,2,2,,,,,
+Mimir Config Space,0x0_0013_0000_0000,128MB,96,Mimir[0],0,Config,0x0_0000_0000_0000,3,3,Yes,Yes,TLBApp0 (BAR0),100-107,
+,0x0_0013_0800_0000,128MB,97,Mimir[1],0,Config,0x0_0000_0000_0000,3,3,Yes,Yes,TLBApp0 (BAR0),108-115,
+,0x0_0013_1000_0000,128MB,98,Mimir[2],0,Config,0x0_0000_0000_0000,3,3,Yes,Yes,TLBApp0 (BAR0),116-123,
+,0x0_0013_1800_0000,128MB,99,Mimir[3],0,Config,0x0_0000_0000_0000,3,3,Yes,Yes,TLBApp0 (BAR0),124-131,
+,0x0_0013_2000_0000,128MB,100,Mimir[4],0,Config,0x0_0000_0000_0000,3,3,Yes,Yes,TLBApp0 (BAR0),132-139,
+,0x0_0013_2800_0000,128MB,101,Mimir[5],0,Config,0x0_0000_0000_0000,3,3,Yes,Yes,TLBApp0 (BAR0),140-147,
+,0x0_0013_3000_0000,128MB,102,Mimir[6],0,Config,0x0_0000_0000_0000,3,3,Yes,Yes,TLBApp0 (BAR0),148-155,
+,0x0_0013_3800_0000,128MB,103,Mimir[7],0,Config,0x0_0000_0000_0000,3,3,Yes,Yes,TLBApp0 (BAR0),156-163,
+,0x0_0013_4000_0000,128MB,104,Mimir[8],0,Config,0x0_0000_0000_0000,3,3,,,,,
+,0x0_0013_4800_0000,128MB,105,Mimir[9],0,Config,0x0_0000_0000_0000,3,3,,,,,
+,0x0_0013_5000_0000,128MB,106,Mimir[10],0,Config,0x0_0000_0000_0000,3,3,,,,,
+,0x0_0013_5800_0000,128MB,107,Mimir[11],0,Config,0x0_0000_0000_0000,3,3,,,,,
+,0x0_0013_6000_0000,128MB,108,Mimir[12],0,Config,0x0_0000_0000_0000,3,3,,,,,
+,0x0_0013_6800_0000,128MB,109,Mimir[13],0,Config,0x0_0000_0000_0000,3,3,,,,,
+,0x0_0013_7000_0000,128MB,110,Mimir[14],0,Config,0x0_0000_0000_0000,3,3,,,,,
+,0x0_0013_7800_0000,128MB,111,Mimir[15],0,Config,0x0_0000_0000_0000,3,3,,,,,
+,0x0_0013_8000_0000,128MB,112,Mimir[0],1,Config,0x0_0000_0000_0000,3,3,,,,,Unused although there are map
+,0x0_0013_8800_0000,128MB,113,Mimir[1],1,Config,0x0_0000_0000_0000,3,3,,,,,Unused although there are map
+,0x0_0013_9000_0000,128MB,114,Mimir[2],1,Config,0x0_0000_0000_0000,3,3,,,,,Unused although there are map
+,0x0_0013_9800_0000,128MB,115,Mimir[3],1,Config,0x0_0000_0000_0000,3,3,,,,,Unused although there are map
+,0x0_0013_A000_0000,128MB,116,Mimir[4],1,Config,0x0_0000_0000_0000,3,3,,,,,Unused although there are map
+,0x0_0013_A800_0000,128MB,117,Mimir[5],1,Config,0x0_0000_0000_0000,3,3,,,,,Unused although there are map
+,0x0_0013_B000_0000,128MB,118,Mimir[6],1,Config,0x0_0000_0000_0000,3,3,,,,,Unused although there are map
+,0x0_0013_B800_0000,128MB,119,Mimir[7],1,Config,0x0_0000_0000_0000,3,3,,,,,Unused although there are map
+,0x0_0013_C000_0000,128MB,120,Mimir[8],1,Config,0x0_0000_0000_0000,3,3,,,,,Unused although there are map
+,0x0_0013_C800_0000,128MB,121,Mimir[9],1,Config,0x0_0000_0000_0000,3,3,,,,,Unused although there are map
+,0x0_0013_D000_0000,128MB,122,Mimir[10],1,Config,0x0_0000_0000_0000,3,3,,,,,Unused although there are map
+,0x0_0013_D800_0000,128MB,123,Mimir[11],1,Config,0x0_0000_0000_0000,3,3,,,,,Unused although there are map
+,0x0_0013_E000_0000,128MB,124,Mimir[12],1,Config,0x0_0000_0000_0000,3,3,,,,,Unused although there are map
+,0x0_0013_E800_0000,128MB,125,Mimir[13],1,Config,0x0_0000_0000_0000,3,3,,,,,Unused although there are map
+,0x0_0013_F000_0000,128MB,126,Mimir[14],1,Config,0x0_0000_0000_0000,3,3,,,,,Unused although there are map
+,0x0_0013_F800_0000,128MB,127,Mimir[15],1,Config,0x0_0000_0000_0000,3,3,,,,,Unused although there are map
+Quasar Config Space,0x0_0018_0000_0000,256MB,256,Quasar[0],0,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0018_1000_0000,256MB,257,Quasar[0],1,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0018_2000_0000,256MB,258,Quasar[0],2,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0018_3000_0000,256MB,259,Quasar[0],3,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0018_4000_0000,256MB,260,Quasar[0],4,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0018_5000_0000,256MB,261,Quasar[0],5,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0018_6000_0000,256MB,262,Quasar[0],6,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0018_7000_0000,256MB,263,Quasar[0],7,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0018_8000_0000,256MB,264,Quasar[0],8,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0018_9000_0000,256MB,265,Quasar[0],9,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0018_A000_0000,256MB,266,Quasar[0],10,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0018_B000_0000,256MB,267,Quasar[0],11,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0018_C000_0000,256MB,268,Quasar[0],12,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0018_D000_0000,256MB,269,Quasar[0],13,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0018_E000_0000,256MB,270,Quasar[0],14,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0018_F000_0000,256MB,271,Quasar[0],15,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0019_0000_0000,256MB,272,Quasar[0],16,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0019_1000_0000,256MB,273,Quasar[0],17,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0019_2000_0000,256MB,274,Quasar[0],18,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0019_3000_0000,256MB,275,Quasar[0],19,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0019_4000_0000,256MB,276,Quasar[0],20,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0019_5000_0000,256MB,277,Quasar[0],21,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0019_6000_0000,256MB,278,Quasar[0],22,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0019_7000_0000,256MB,279,Quasar[0],23,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0019_8000_0000,256MB,280,Quasar[0],24,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0019_9000_0000,256MB,281,Quasar[0],25,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0019_A000_0000,256MB,282,Quasar[0],26,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0019_B000_0000,256MB,283,Quasar[0],27,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0019_C000_0000,256MB,284,Quasar[0],28,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0019_D000_0000,256MB,285,Quasar[0],29,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0019_E000_0000,256MB,286,Quasar[0],30,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_0019_F000_0000,256MB,287,Quasar[0],31,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001A_0000_0000,256MB,288,Quasar[0],32,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001A_1000_0000,256MB,289,Quasar[0],33,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001A_2000_0000,256MB,290,Quasar[0],34,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001A_3000_0000,256MB,291,Quasar[0],35,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001A_4000_0000,256MB,292,Quasar[0],36,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001A_5000_0000,256MB,293,Quasar[0],37,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001A_6000_0000,256MB,294,Quasar[0],38,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001A_7000_0000,256MB,295,Quasar[0],39,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001A_8000_0000,256MB,296,Quasar[0],40,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001A_9000_0000,256MB,297,Quasar[0],41,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001A_A000_0000,256MB,298,Quasar[0],42,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001A_B000_0000,256MB,299,Quasar[0],43,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001A_C000_0000,256MB,300,Quasar[0],44,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001A_D000_0000,256MB,301,Quasar[0],45,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001A_E000_0000,256MB,302,Quasar[0],46,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001A_F000_0000,256MB,303,Quasar[0],47,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001B_0000_0000,256MB,304,Quasar[0],48,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001B_1000_0000,256MB,305,Quasar[0],49,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001B_2000_0000,256MB,306,Quasar[0],50,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001B_3000_0000,256MB,307,Quasar[0],51,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001B_4000_0000,256MB,308,Quasar[0],52,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001B_5000_0000,256MB,309,Quasar[0],53,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001B_6000_0000,256MB,310,Quasar[0],54,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001B_7000_0000,256MB,311,Quasar[0],55,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001B_8000_0000,256MB,312,Quasar[0],56,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001B_9000_0000,256MB,313,Quasar[0],57,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001B_A000_0000,256MB,314,Quasar[0],58,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001B_B000_0000,256MB,315,Quasar[0],59,Config,0x0_0000_0000_0000,14,14,Yes,Yes,TLB Bypass (BAR4),,"Quasar SMU, D2D, etc… (up to 1GB space is expected)"
+,0x0_001C_0000_0000,256MB,320,Quasar[1],0,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001C_1000_0000,256MB,321,Quasar[1],1,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001C_2000_0000,256MB,322,Quasar[1],2,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001C_3000_0000,256MB,323,Quasar[1],3,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001C_4000_0000,256MB,324,Quasar[1],4,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001C_5000_0000,256MB,325,Quasar[1],5,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001C_6000_0000,256MB,326,Quasar[1],6,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001C_7000_0000,256MB,327,Quasar[1],7,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001C_8000_0000,256MB,328,Quasar[1],8,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001C_9000_0000,256MB,329,Quasar[1],9,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001C_A000_0000,256MB,330,Quasar[1],10,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001C_B000_0000,256MB,331,Quasar[1],11,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001C_C000_0000,256MB,332,Quasar[1],12,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001C_D000_0000,256MB,333,Quasar[1],13,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001C_E000_0000,256MB,334,Quasar[1],14,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001C_F000_0000,256MB,335,Quasar[1],15,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001D_0000_0000,256MB,336,Quasar[1],16,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001D_1000_0000,256MB,337,Quasar[1],17,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001D_2000_0000,256MB,338,Quasar[1],18,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001D_3000_0000,256MB,339,Quasar[1],19,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001D_4000_0000,256MB,340,Quasar[1],20,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001D_5000_0000,256MB,341,Quasar[1],21,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001D_6000_0000,256MB,342,Quasar[1],22,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001D_7000_0000,256MB,343,Quasar[1],23,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001D_8000_0000,256MB,344,Quasar[1],24,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001D_9000_0000,256MB,345,Quasar[1],25,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001D_A000_0000,256MB,346,Quasar[1],26,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001D_B000_0000,256MB,347,Quasar[1],27,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001D_C000_0000,256MB,348,Quasar[1],28,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001D_D000_0000,256MB,349,Quasar[1],29,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001D_E000_0000,256MB,350,Quasar[1],30,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001D_F000_0000,256MB,351,Quasar[1],31,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001E_0000_0000,256MB,352,Quasar[1],32,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001E_1000_0000,256MB,353,Quasar[1],33,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001E_2000_0000,256MB,354,Quasar[1],34,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001E_3000_0000,256MB,355,Quasar[1],35,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001E_4000_0000,256MB,356,Quasar[1],36,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001E_5000_0000,256MB,357,Quasar[1],37,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001E_6000_0000,256MB,358,Quasar[1],38,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001E_7000_0000,256MB,359,Quasar[1],39,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001E_8000_0000,256MB,360,Quasar[1],40,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001E_9000_0000,256MB,361,Quasar[1],41,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001E_A000_0000,256MB,362,Quasar[1],42,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001E_B000_0000,256MB,363,Quasar[1],43,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001E_C000_0000,256MB,364,Quasar[1],44,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001E_D000_0000,256MB,365,Quasar[1],45,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001E_E000_0000,256MB,366,Quasar[1],46,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001E_F000_0000,256MB,367,Quasar[1],47,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001F_0000_0000,256MB,368,Quasar[1],48,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001F_1000_0000,256MB,369,Quasar[1],49,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001F_2000_0000,256MB,370,Quasar[1],50,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001F_3000_0000,256MB,371,Quasar[1],51,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001F_4000_0000,256MB,372,Quasar[1],52,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001F_5000_0000,256MB,373,Quasar[1],53,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001F_6000_0000,256MB,374,Quasar[1],54,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001F_7000_0000,256MB,375,Quasar[1],55,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001F_8000_0000,256MB,376,Quasar[1],56,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001F_9000_0000,256MB,377,Quasar[1],57,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001F_A000_0000,256MB,378,Quasar[1],58,Config,0x0_0000_0000_0000,15,15,,,,,
+,0x0_001F_B000_0000,256MB,379,Quasar[1],59,Config,0x0_0000_0000_0000,15,15,,,,,
+Tensix Neo (Quasar 0),0x0_0100_0000_0000,16MB,128,Quasar[0],0,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),0,
+,0x0_0100_0100_0000,16MB,129,Quasar[0],1,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),1,
+,0x0_0100_0200_0000,16MB,130,Quasar[0],2,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),2,
+,0x0_0100_0300_0000,16MB,131,Quasar[0],3,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),3,
+,0x0_0100_0400_0000,16MB,132,Quasar[0],4,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),4,
+,0x0_0100_0500_0000,16MB,133,Quasar[0],5,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),5,
+,0x0_0100_0600_0000,16MB,134,Quasar[0],6,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),6,
+,0x0_0100_0700_0000,16MB,135,Quasar[0],7,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),7,
+,0x0_0100_0800_0000,16MB,136,Quasar[0],8,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),8,
+,0x0_0100_0900_0000,16MB,137,Quasar[0],9,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),9,
+,0x0_0100_0A00_0000,16MB,138,Quasar[0],10,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),10,
+,0x0_0100_0B00_0000,16MB,139,Quasar[0],11,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),11,
+,0x0_0100_0C00_0000,16MB,140,Quasar[0],12,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),12,
+,0x0_0100_0D00_0000,16MB,141,Quasar[0],13,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),13,
+,0x0_0100_0E00_0000,16MB,142,Quasar[0],14,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),14,
+,0x0_0100_0F00_0000,16MB,143,Quasar[0],15,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),15,
+,0x0_0100_1000_0000,16MB,144,Quasar[0],16,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),16,
+,0x0_0100_1100_0000,16MB,145,Quasar[0],17,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),17,
+,0x0_0100_1200_0000,16MB,146,Quasar[0],18,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),18,
+,0x0_0100_1300_0000,16MB,147,Quasar[0],19,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),19,
+,0x0_0100_1400_0000,16MB,148,Quasar[0],20,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),20,
+,0x0_0100_1500_0000,16MB,149,Quasar[0],21,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),21,
+,0x0_0100_1600_0000,16MB,150,Quasar[0],22,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),22,
+,0x0_0100_1700_0000,16MB,151,Quasar[0],23,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),23,
+,0x0_0100_1800_0000,16MB,152,Quasar[0],24,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),24,
+,0x0_0100_1900_0000,16MB,153,Quasar[0],25,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),25,
+,0x0_0100_1A00_0000,16MB,154,Quasar[0],26,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),26,
+,0x0_0100_1B00_0000,16MB,155,Quasar[0],27,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),27,
+,0x0_0100_1C00_0000,16MB,156,Quasar[0],28,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),28,
+,0x0_0100_1D00_0000,16MB,157,Quasar[0],29,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),29,
+,0x0_0100_1E00_0000,16MB,158,Quasar[0],30,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),30,
+,0x0_0100_1F00_0000,16MB,159,Quasar[0],31,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),31,
+Tensix Neo (Quasar 1),0x0_0100_2000_0000,16MB,160,Quasar[1],0,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),32,
+,0x0_0100_2100_0000,16MB,161,Quasar[1],1,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),33,
+,0x0_0100_2200_0000,16MB,162,Quasar[1],2,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),34,
+,0x0_0100_2300_0000,16MB,163,Quasar[1],3,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),35,
+,0x0_0100_2400_0000,16MB,164,Quasar[1],4,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),36,
+,0x0_0100_2500_0000,16MB,165,Quasar[1],5,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),37,
+,0x0_0100_2600_0000,16MB,166,Quasar[1],6,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),38,
+,0x0_0100_2700_0000,16MB,167,Quasar[1],7,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),39,
+,0x0_0100_2800_0000,16MB,168,Quasar[1],8,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),40,
+,0x0_0100_2900_0000,16MB,169,Quasar[1],9,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),41,
+,0x0_0100_2A00_0000,16MB,170,Quasar[1],10,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),42,
+,0x0_0100_2B00_0000,16MB,171,Quasar[1],11,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),43,
+,0x0_0100_2C00_0000,16MB,172,Quasar[1],12,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),44,
+,0x0_0100_2D00_0000,16MB,173,Quasar[1],13,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),45,
+,0x0_0100_2E00_0000,16MB,174,Quasar[1],14,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),46,
+,0x0_0100_2F00_0000,16MB,175,Quasar[1],15,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),47,
+,0x0_0100_3000_0000,16MB,176,Quasar[1],16,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),48,
+,0x0_0100_3100_0000,16MB,177,Quasar[1],17,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),49,
+,0x0_0100_3200_0000,16MB,178,Quasar[1],18,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),50,
+,0x0_0100_3300_0000,16MB,179,Quasar[1],19,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),51,
+,0x0_0100_3400_0000,16MB,180,Quasar[1],20,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),52,
+,0x0_0100_3500_0000,16MB,181,Quasar[1],21,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),53,
+,0x0_0100_3600_0000,16MB,182,Quasar[1],22,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),54,
+,0x0_0100_3700_0000,16MB,183,Quasar[1],23,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),55,
+,0x0_0100_3800_0000,16MB,184,Quasar[1],24,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),56,
+,0x0_0100_3900_0000,16MB,185,Quasar[1],25,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),57,
+,0x0_0100_3A00_0000,16MB,186,Quasar[1],26,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),58,
+,0x0_0100_3B00_0000,16MB,187,Quasar[1],27,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),59,
+,0x0_0100_3C00_0000,16MB,188,Quasar[1],28,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),60,
+,0x0_0100_3D00_0000,16MB,189,Quasar[1],29,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),61,
+,0x0_0100_3E00_0000,16MB,190,Quasar[1],30,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),62,
+,0x0_0100_3F00_0000,16MB,191,Quasar[1],31,TensixNeo,0x0_0000_0000_0000,4,,Yes,Yes,TLBApp0 (BAR0),63,
+Quasar DRAM,0x1_0000_0000_0000,8GB,96,Mimir[0],0,GDDR,0x0_0008_0000_0000,5,,Yes,Yes,TLBApp1 (BAR4),0,
+,0x1_0002_0000_0000,8GB,97,Mimir[1],0,GDDR,0x0_0008_0000_0000,5,,Yes,Yes,TLBApp1 (BAR4),1,
+,0x1_0004_0000_0000,8GB,98,Mimir[2],0,GDDR,0x0_0008_0000_0000,5,,Yes,Yes,TLBApp1 (BAR4),2,
+,0x1_0006_0000_0000,8GB,99,Mimir[3],0,GDDR,0x0_0008_0000_0000,5,,Yes,Yes,TLBApp1 (BAR4),3,
+,0x1_0008_0000_0000,8GB,100,Mimir[4],0,GDDR,0x0_0008_0000_0000,5,,Yes,Yes,TLBApp1 (BAR4),4,
+,0x1_000A_0000_0000,8GB,101,Mimir[5],0,GDDR,0x0_0008_0000_0000,5,,Yes,Yes,TLBApp1 (BAR4),5,
+,0x1_000C_0000_0000,8GB,102,Mimir[6],0,GDDR,0x0_0008_0000_0000,5,,Yes,Yes,TLBApp1 (BAR4),6,
+,0x1_000E_0000_0000,8GB,103,Mimir[7],0,GDDR,0x0_0008_0000_0000,5,,Yes,Yes,TLBApp1 (BAR4),7,
+,0x1_0010_0000_0000,8GB,104,Mimir[8],0,GDDR,0x0_0008_0000_0000,5,,,,,,
+,0x1_0012_0000_0000,8GB,105,Mimir[9],0,GDDR,0x0_0008_0000_0000,5,,,,,,
+,0x1_0014_0000_0000,8GB,106,Mimir[10],0,GDDR,0x0_0008_0000_0000,5,,,,,,
+,0x1_0016_0000_0000,8GB,107,Mimir[11],0,GDDR,0x0_0008_0000_0000,5,,,,,,
+,0x1_0018_0000_0000,8GB,108,Mimir[12],0,GDDR,0x0_0008_0000_0000,5,,,,,,
+,0x1_001A_0000_0000,8GB,109,Mimir[13],0,GDDR,0x0_0008_0000_0000,5,,,,,,
+,0x1_001C_0000_0000,8GB,110,Mimir[14],0,GDDR,0x0_0008_0000_0000,5,,,,,,
+,0x1_001E_0000_0000,8GB,111,Mimir[15],0,GDDR,0x0_0008_0000_0000,5,,,,,,
+,0x1_0020_0000_0000,8GB,112,Mimir[0],1,GDDR,0x0_0008_0000_0000,5,,Yes,Yes,,,
+,0x1_0022_0000_0000,8GB,113,Mimir[1],1,GDDR,0x0_0008_0000_0000,5,,Yes,Yes,,,
+,0x1_0024_0000_0000,8GB,114,Mimir[2],1,GDDR,0x0_0008_0000_0000,5,,Yes,Yes,,,
+,0x1_0026_0000_0000,8GB,115,Mimir[3],1,GDDR,0x0_0008_0000_0000,5,,Yes,Yes,,,
+,0x1_0028_0000_0000,8GB,116,Mimir[4],1,GDDR,0x0_0008_0000_0000,5,,Yes,Yes,,,
+,0x1_002A_0000_0000,8GB,117,Mimir[5],1,GDDR,0x0_0008_0000_0000,5,,Yes,Yes,,,
+,0x1_002C_0000_0000,8GB,118,Mimir[6],1,GDDR,0x0_0008_0000_0000,5,,Yes,Yes,,,
+,0x1_002E_0000_0000,8GB,119,Mimir[7],1,GDDR,0x0_0008_0000_0000,5,,Yes,Yes,,,
+,0x1_0030_0000_0000,8GB,120,Mimir[8],1,GDDR,0x0_0008_0000_0000,5,,,,,,
+,0x1_0032_0000_0000,8GB,121,Mimir[9],1,GDDR,0x0_0008_0000_0000,5,,,,,,
+,0x1_0034_0000_0000,8GB,122,Mimir[10],1,GDDR,0x0_0008_0000_0000,5,,,,,,
+,0x1_0036_0000_0000,8GB,123,Mimir[11],1,GDDR,0x0_0008_0000_0000,5,,,,,,
+,0x1_0038_0000_0000,8GB,124,Mimir[12],1,GDDR,0x0_0008_0000_0000,5,,,,,,
+,0x1_003A_0000_0000,8GB,125,Mimir[13],1,GDDR,0x0_0008_0000_0000,5,,,,,,
+,0x1_003C_0000_0000,8GB,126,Mimir[14],1,GDDR,0x0_0008_0000_0000,5,,,,,,
+,0x1_003E_0000_0000,8GB,127,Mimir[15],1,GDDR,0x0_0008_0000_0000,5,,,,,,
+Athena PCIE IO,0x2_0000_0000_0000,256TB,16,Athena[0],0,PCIE IO,0x2_0000_0000_0000,6,,,Yes,,,
+,0x3_0000_0000_0000,256TB,17,Athena[1],0,PCIE IO,0x2_0000_0000_0000,6,,,,,,
+Athena DRAM,0x4_0000_0000_0000,256TB,16,Athena[0],0,LPDDR,0x4_0000_0000_0000,7,,,Yes,,,
+,0x5_0000_0000_0000,256TB,17,Athena[1],0,LPDDR,0x4_0000_0000_0000,7,,,,,,
+Keraunos PCIE,0x6_0000_0000_0000,256TB,23,Keraunos[0],0,PCIE IO,0x2_0000_0000_0000,8,,Yes,,,,
+,0x7_0000_0000_0000,256TB,24,Keraunos[1],0,PCIE IO,0x2_0000_0000_0000,8,,,,,,
+Remote Athena IOVA,0x8_0000_0000_0000,2PB,,,,,,,,,,,,
