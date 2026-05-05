@@ -40,6 +40,11 @@ logger = logging.getLogger(__name__)
 
 SCRIPT_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
 
+
+def _skip_boards() -> bool:
+    return os.getenv("BOARD") in ("galaxy", "loudbox")
+
+
 # Constant memory addresses we can read from SMC
 PING_DMFW_DURATION_REG_ADDR = 0x80030448
 
@@ -76,7 +81,10 @@ def tt_smi_reset():
     return smi_reset_result
 
 
-@pytest.mark.skipif(os.getenv("BOARD") == "galaxy", reason="Galaxy lacks a DMC")
+@pytest.mark.skipif(
+    "os.getenv('BOARD') in ('galaxy', 'loudbox')",
+    reason="Galaxy lacks a DMC; Loudbox excluded from DMC-dependent stress tests",
+)
 def test_arc_watchdog(arc_chip_dut, asic_id):
     """
     Validates that the DMC firmware watchdog for the ARC will correctly
@@ -103,7 +111,10 @@ def test_arc_watchdog(arc_chip_dut, asic_id):
     )
 
 
-@pytest.mark.skipif(os.getenv("BOARD") == "galaxy", reason="Galaxy lacks a DMC")
+@pytest.mark.skipif(
+    "os.getenv('BOARD') in ('galaxy', 'loudbox')",
+    reason="Galaxy lacks a DMC; Loudbox excluded from DMC-dependent stress tests",
+)
 def test_pcie_fw_load_time(arc_chip_dut, asic_id):
     """
     Checks PCIe firmware load time is within 40ms.
@@ -161,7 +172,7 @@ def test_smi_reset(arc_chip_dut, asic_id):
             continue
 
         arc_chip = pyluwen.detect_chips()[asic_id]
-        if os.getenv("BOARD") != "galaxy":
+        if not _skip_boards():
             response = arc_chip.arc_msg(TT_SMC_MSG_PING_DM, True, False, 0, 0, 1000)
             if response[0] != 1 or response[1] != 0:
                 logger.warning(f"Ping failed on iteration {i}")
@@ -178,7 +189,7 @@ def test_smi_reset(arc_chip_dut, asic_id):
         # Delete arc_chip so we don't hold an open FD
         del arc_chip
 
-    if os.getenv("BOARD") != "galaxy":
+    if not _skip_boards():
         logger.info(
             f"Average DMFW ping time (after reset): {dmfw_ping_avg:.2f} ms, "
             f"Max DMFW ping time (after reset): {dmfw_ping_max:.2f} ms."
@@ -216,7 +227,10 @@ def test_smi_reset_with_eth(arc_chip_dut, asic_id):
     )
 
 
-@pytest.mark.skipif(os.getenv("BOARD") == "galaxy", reason="Galaxy lacks a DMC")
+@pytest.mark.skipif(
+    "os.getenv('BOARD') in ('galaxy', 'loudbox')",
+    reason="Galaxy lacks a DMC; Loudbox has no STLink for dirty reset",
+)
 def test_dirty_reset():
     """
     Checks that the SMC comes up correctly after a "dirty" reset, where the
@@ -248,7 +262,10 @@ def test_dirty_reset():
     )
 
 
-@pytest.mark.skipif(os.getenv("BOARD") == "galaxy", reason="Galaxy lacks a DMC")
+@pytest.mark.skipif(
+    "os.getenv('BOARD') in ('galaxy', 'loudbox')",
+    reason="Galaxy lacks a DMC; Loudbox excluded from DMC-dependent stress tests",
+)
 def test_dmc_ping(arc_chip_dut, asic_id):
     """
     Repeatedly pings the DMC from the SMC to see what the average response time
@@ -387,7 +404,8 @@ def test_power_state_toggle(arc_chip_dut, asic_id, board_name):
 
 
 @pytest.mark.skipif(
-    os.getenv("BOARD") == "galaxy", reason="Burnin not stable on Galaxy"
+    "os.getenv('BOARD') in ('galaxy', 'loudbox')",
+    reason="Burnin not stable on Galaxy or Loudbox",
 )
 def test_power_virus(arc_chip_dut, asic_id):
     """
@@ -482,7 +500,8 @@ def test_power_virus(arc_chip_dut, asic_id):
 
 
 @pytest.mark.skipif(
-    os.getenv("BOARD") == "galaxy", reason="Burnin not stable on Galaxy"
+    "os.getenv('BOARD') in ('galaxy', 'loudbox')",
+    reason="Burnin not stable on Galaxy or Loudbox",
 )
 def test_tensix_reset_then_burnin(arc_chip_dut, asic_id):
     """

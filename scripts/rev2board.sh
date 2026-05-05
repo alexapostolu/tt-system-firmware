@@ -20,6 +20,8 @@ fi
 case "$1" in
   p100a|p150a|p150b|p150c|p300a|p300b|p300c|galaxy|galaxy_revc|orion_slt)
   BOARD="tt_blackhole@$1/tt_blackhole/$CLUSTER";;
+  loudbox)
+  BOARD="tt_blackhole@p150b/tt_blackhole/$CLUSTER";;
   *) >&2 echo "Unknown board: $1"; exit 1;;
 esac
 

@@ -71,6 +71,11 @@ logger = logging.getLogger(__name__)
 
 SCRIPT_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
 
+
+def _skip_boards(board_name) -> bool:
+    return board_name == "loudbox" or "galaxy" in board_name.lower()
+
+
 REFCLK_HZ = 50_000_000
 
 # Constant memory addresses we can read from SMC
@@ -210,6 +215,8 @@ def check_chip_count(board_name):
     chips = pyluwen.detect_chips()
     if "galaxy" in board_name:
         assert len(chips) == 32, f"Expected 32 BH chips on Galaxy, found {len(chips)}"
+    elif "loudbox" in board_name:
+        assert len(chips) == 8, f"Expected 8 BH chips on Loudbox, found {len(chips)}"
     elif "p300" in board_name:
         assert len(chips) == 2, f"Expected 2 BH chips on P300, found {len(chips)}"
     else:
@@ -241,9 +248,8 @@ def upgrade_from_version_test(
     # versions we want to check upgrading from
 
     # Galaxy has no recovery solution, but also lacks the DMC- so we don't
-    # need to directly flash DMFW to test upgrades. Just skip this part of
-    # the test on Galaxy
-    if board_name != "galaxy":
+    # need to directly flash DMFW to test upgrades. Skip the same path on Loudbox.
+    if not _skip_boards(board_name):
         # flash recovery first
         try:
             subprocess.check_call(
@@ -286,7 +292,7 @@ def upgrade_from_version_test(
         )
         assert False
 
-    if replace_bootloader and (not board_name == "galaxy"):
+    if replace_bootloader and not _skip_boards(board_name):
         # Newer firmware requires us to replace the production bootloader on the
         # DMC with one that will accept a firmware signed using our temporary key
         try:
@@ -310,7 +316,7 @@ def upgrade_from_version_test(
 
     time.sleep(0.5)
     arc_chip = pyluwen.detect_chips()[0]
-    if not board_name == "galaxy":
+    if not _skip_boards(board_name):
         assert dmfw_version_base == read_telem(arc_chip, TAG_DM_APP_FW_VERSION)
     assert cmfw_version_base == read_telem(arc_chip, TAG_CM_FW_VERSION)
     del arc_chip
@@ -322,7 +328,7 @@ def upgrade_from_version_test(
 
     time.sleep(0.5)
     arc_chip = pyluwen.detect_chips()[0]
-    if not board_name == "galaxy":
+    if not _skip_boards(board_name):
         assert get_ttzp_version.get_ttzp_version_u32(
             TTZP / "app/dmc/VERSION"
         ) == read_telem(arc_chip, TAG_DM_APP_FW_VERSION)
@@ -869,6 +875,10 @@ def dirty_reset_test():
     return True
 
 
+@pytest.mark.skipif(
+    "os.getenv('BOARD') in ('galaxy', 'loudbox')",
+    reason="Galaxy: no DMC path; Loudbox: no STLink for OpenOCD dirty reset",
+)
 def test_dirty_reset():
     """
     Checks that the SMC comes up correctly after a "dirty" reset, where the
@@ -1180,12 +1190,12 @@ def power_state_toggle_test(arc_chip_dut, asic_id, board_name):
 
     Toggles between high and low power states and verifies that the TDP
     difference between the two states is greater than 80W.
-    For galaxy boards, only tests power state setting without TDP validation.
+    For galaxy and loudbox, only tests power state setting without TDP validation.
     """
     expected_power_delta = 80
     settling_time = 0.5
     arc_chip = pyluwen.detect_chips()[asic_id]
-    is_galaxy = "galaxy" in board_name.lower() if board_name else False
+    skip_tdp = _skip_boards(board_name)
 
     try:
         logger.info("Setting power state to high")
@@ -1197,7 +1207,7 @@ def power_state_toggle_test(arc_chip_dut, asic_id, board_name):
     time.sleep(settling_time)  # Allow power state to stabilize
 
     # Measure input power in high power state
-    if not is_galaxy:
+    if not skip_tdp:
         high_power = read_telem(arc_chip, TAG_INPUT_POWER)
         logger.info(f"High power state input power: {high_power}W")
 
@@ -1206,7 +1216,7 @@ def power_state_toggle_test(arc_chip_dut, asic_id, board_name):
     time.sleep(settling_time)  # Allow power state to stabilize
 
     # Measure input power in low power state
-    if not is_galaxy:
+    if not skip_tdp:
         low_power = read_telem(arc_chip, TAG_INPUT_POWER)
         logger.info(f"Low power state input power: {low_power}W")
 
@@ -1224,7 +1234,7 @@ def power_state_toggle_test(arc_chip_dut, asic_id, board_name):
 def test_power_state_toggle(arc_chip_dut, asic_id, board_name):
     """
     Validates that toggling between high and low power states results in a TDP delta > 90W
-    For galaxy boards, only validates power state setting functionality.
+    For galaxy and loudbox, only validates power state setting functionality.
     """
     assert 0 == power_state_toggle_test(arc_chip_dut, asic_id, board_name), (
         "power_state_toggle_test failed"
