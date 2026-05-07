@@ -86,7 +86,7 @@ jobs:
         run: |
           if [[ "${{ matrix.config.board }}" == "p300a" ]]; then
             echo "HF_MODEL=/opt/tenstorrent/hf-models/meta-llama/Llama-3.1-8B/" >> $GITHUB_ENV
-          elif [[ "${{ matrix.config.board }}" == "galaxy" ]]; then
+          elif [[ "${{ matrix.config.board }}" == "galaxy" || "${{ matrix.config.board }}" == "loudbox" ]]; then
             echo "HF_MODEL=/opt/tenstorrent/hf-models/meta-llama/Llama-3.3-70B-Instruct/" >> $GITHUB_ENV
             echo "LLAMA_DIR=/opt/tenstorrent/hf-models/meta-llama/Llama-3.3-70B-Instruct/" >> $GITHUB_ENV
           fi
