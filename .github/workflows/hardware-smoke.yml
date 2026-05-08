@@ -44,6 +44,21 @@ jobs:
           MATRIX_CONFIG_WH="$(jq -c '[.[] | select(.product == "wh") | del(.product)]' .github/ci_boards.json)"
           echo "matrix-config-wh=$MATRIX_CONFIG_WH" | tee -a $GITHUB_OUTPUT
 
+  detect-changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
+    outputs:
+      wh-blob-changed: ${{ steps.changes.outputs.wh-blob }}
+    steps:
+      - uses: dorny/paths-filter@v4
+        id: changes
+        with:
+          filters: |
+            wh-blob:
+              - 'zephyr/blobs/fw_pack-wormhole.tar.gz'
+
   hardware-smoke-test:
     name: BH Hardware Smoke Test on ${{ matrix.config.board }}
     if: github.event_name != 'schedule'
@@ -226,8 +241,8 @@ jobs:
 
   smoke-e2e-wh-test:
     name: WH Smoke E2E Test on ${{ matrix.config.board }}
-    needs: [gen-config]
-    if: github.event_name == 'schedule' || contains(github.event.pull_request.labels.*.name, 'wh-tests')
+    needs: [gen-config, detect-changes]
+    if: github.event_name == 'schedule' || contains(github.event.pull_request.labels.*.name, 'wh-tests') || needs.detect-changes.outputs.wh-blob-changed == 'true'
     strategy:
       fail-fast: false
       matrix:
