@@ -152,6 +152,15 @@ jobs:
           echo "SMC state dump:"
           python3 ./scripts/dump_smc_state.py --asic-id $ASIC_ID
 
+      - name: Reset hardware
+        if: ${{ always() }}
+        working-directory: tt-system-firmware
+        shell: bash
+        run: |
+          ./scripts/dmc_reset.py -w
+          ./scripts/rescan-pcie.sh
+          tt-smi -r
+
   smoke-e2e-test:
     name: BH Smoke E2E Test on ${{ matrix.config.board }}
     if: github.event_name != 'schedule'
@@ -238,6 +247,15 @@ jobs:
           python3 ./scripts/smc_console.py --rtt -n
           echo "SMC state dump:"
           python3 ./scripts/dump_smc_state.py --asic-id $ASIC_ID
+
+      - name: Reset hardware
+        if: ${{ always() }}
+        working-directory: tt-system-firmware
+        shell: bash
+        run: |
+          ./scripts/dmc_reset.py -w
+          ./scripts/rescan-pcie.sh
+          tt-smi -r
 
   smoke-e2e-wh-test:
     name: WH Smoke E2E Test on ${{ matrix.config.board }}
