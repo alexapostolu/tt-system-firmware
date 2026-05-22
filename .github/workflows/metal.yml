@@ -42,9 +42,33 @@ jobs:
           MATRIX_CONFIG="$(jq -c '[.[] | select(.product == "bh") | del(.product)]' .github/ci_boards.json)"
           echo "matrix-config=$MATRIX_CONFIG" | tee -a $GITHUB_OUTPUT
 
+  blackhole-recovery:
+    name: Blackhole Recovery on ${{ matrix.config.board }}
+    needs: gen-config
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJson(needs.gen-config.outputs.matrix-config) }}
+    runs-on: ${{ matrix.config.runs-on }}
+    steps:
+      # Only p100a / p150a / p300a have an STLink/recovery path wired up on
+      # the CI runners. Galaxy and loudbox runners have no recovery path, so
+      # their matrix entries skip both steps and succeed vacuously.
+      - name: Checkout
+        if: contains(fromJSON('["p100a", "p150a", "p300a"]'), matrix.config.board)
+        uses: actions/checkout@v4
+
+      - name: Run Blackhole Recovery
+        if: contains(fromJSON('["p100a", "p150a", "p300a"]'), matrix.config.board)
+        shell: bash
+        env:
+          BOARD_NAME: ${{ matrix.config.board }}
+        run: |
+          ./scripts/tooling/blackhole_recovery/recover-blackhole.sh
+
   metal-test:
     name: Metal Test on ${{ matrix.config.board }}
-    needs: [build-fw-artifact, gen-config]
+    needs: [build-fw-artifact, gen-config, blackhole-recovery]
     strategy:
       fail-fast: false
       matrix:
