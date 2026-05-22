@@ -26,6 +26,7 @@ concurrency:
 
 jobs:
   gen-config:
+    if: github.event.action != 'labeled' || github.event.label.name == 'wh-tests'
     runs-on: ubuntu-24.04
     outputs:
       matrix-config-bh: ${{ steps.gen-config.outputs.matrix-config-bh }}
@@ -45,7 +46,7 @@ jobs:
           echo "matrix-config-wh=$MATRIX_CONFIG_WH" | tee -a $GITHUB_OUTPUT
 
   detect-changes:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && (github.event.action != 'labeled' || github.event.label.name == 'wh-tests')
     runs-on: ubuntu-24.04
     permissions:
       pull-requests: read
@@ -61,7 +62,7 @@ jobs:
 
   hardware-smoke-test:
     name: BH Hardware Smoke Test on ${{ matrix.config.board }}
-    if: github.event_name != 'schedule'
+    if: github.event_name != 'schedule' && github.event.action != 'labeled'
     needs: [gen-config]
     env:
       ASIC_ID: 0
@@ -154,7 +155,7 @@ jobs:
 
   smoke-e2e-test:
     name: BH Smoke E2E Test on ${{ matrix.config.board }}
-    if: github.event_name != 'schedule'
+    if: github.event_name != 'schedule' && github.event.action != 'labeled'
     needs: [gen-config]
     strategy:
       fail-fast: false
