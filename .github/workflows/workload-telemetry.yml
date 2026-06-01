@@ -1,0 +1,160 @@
+name: Workload Telemetry
+
+on:
+  pull_request:
+    # TEMPORARY: `opened/synchronize/reopened` cause the workflow to run on the
+    # upstream repo (where the self-hosted runners live) every time the PR branch
+    # is updated. Remove these three types prior to merging so only `closed`
+    # remains and the workflow only runs on merge.
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - closed
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  pcie-didt-telemetry:
+    name: BH PCIe DIDT + Telemetry on ${{ matrix.config.board }}
+    # TEMPORARY: the `pull_request` clause (without the merged check) lets every
+    # PR push trigger the job. Replace this `if:` with
+    #   if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true }}
+    # prior to merging so the job only fires on actual merges.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - board: p150a
+            runs-on: p150a-jtag
+            metal-image: ghcr.io/tenstorrent/tt-metal/upstream-tests-bh:v0.70.0-dev20260422-9-g6d3bc8e204
+    runs-on: ${{ matrix.config.runs-on }}
+    env:
+      LLAMA_INSTRUCT_DIR: /opt/tenstorrent/hf-models/meta-llama/Llama-3.1-8B-Instruct/
+      TELEMETRY_DIR: ${{ github.workspace }}/telemetry_output
+      VENV_DIR: ${{ github.workspace }}/.telem-env
+      WORKLOAD: test_suite_bh_pcie_didt_tests
+    steps:
+      # Defensive workspace wipe: prior container jobs on this self-hosted
+      # runner may have left root-owned files (e.g. .west/) that the
+      # unprivileged runner user can't delete, causing actions/checkout to
+      # fail with EACCES. The chown-back step in the container workflows
+      # prevents this going forward, but this keeps us robust against any
+      # stale leftovers from before that landed. We can't assume passwordless
+      # sudo on this self-hosted runner, but docker access is available (the
+      # workload step below uses it), so do the wipe from a throwaway root
+      # container instead.
+      - name: Pre-checkout workspace wipe
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ls -la "$GITHUB_WORKSPACE" || true
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE":/ws \
+            alpine:3 \
+            sh -c 'find /ws -mindepth 1 -delete'
+          ls -la "$GITHUB_WORKSPACE" || true
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install telemetry dependencies
+        run: |
+          set -euxo pipefail
+          python3 -m venv "$VENV_DIR"
+          "$VENV_DIR/bin/pip" install --upgrade pip
+          "$VENV_DIR/bin/pip" install "pyluwen>=0.8.1" pandas
+
+      - name: Start telemetry collection
+        run: |
+          set -euxo pipefail
+          mkdir -p "$TELEMETRY_DIR"
+          cd "$TELEMETRY_DIR"
+          # Launch the telemetry script in the background. The runner user
+          # already has access to /dev/tenstorrent (same access other workflows
+          # use via pyluwen), so no sudo is required.
+          nohup "$VENV_DIR/bin/python3" \
+            "$GITHUB_WORKSPACE/scripts/read_telemetry.py" \
+            --csv telemetry \
+            --workload "$WORKLOAD" \
+            > telemetry.log 2>&1 < /dev/null &
+          TELEM_PID=$!
+          echo "$TELEM_PID" > telemetry.pid
+
+          # Give the script a moment to detect chips and start logging.
+          sleep 5
+
+          if ! kill -0 "$TELEM_PID" 2>/dev/null; then
+            echo "Telemetry process failed to start. Log:"
+            cat telemetry.log || true
+            exit 1
+          fi
+          echo "TELEMETRY_PID=$TELEM_PID" >> "$GITHUB_ENV"
+          echo "Started telemetry collection (PID $TELEM_PID)"
+
+      - name: Run test_suite_bh_pcie_didt_tests
+        timeout-minutes: 65
+        run: |
+          timeout --preserve-status 60m \
+          docker run \
+            --device /dev/tenstorrent \
+            -v /dev/hugepages-1G:/dev/hugepages-1G \
+            -v "$LLAMA_INSTRUCT_DIR:$LLAMA_INSTRUCT_DIR" \
+            -e HF_MODEL="$LLAMA_INSTRUCT_DIR" \
+            -e TT_CACHE_PATH="$LLAMA_INSTRUCT_DIR" \
+            ${{ matrix.config.metal-image }} \
+              blackhole --test-suite "$WORKLOAD"
+
+      - name: Stop telemetry collection
+        if: ${{ always() }}
+        run: |
+          set -uxo pipefail
+          PID="${TELEMETRY_PID:-}"
+          if [ -z "$PID" ] && [ -f "$TELEMETRY_DIR/telemetry.pid" ]; then
+            PID="$(cat "$TELEMETRY_DIR/telemetry.pid")"
+          fi
+          if [ -z "$PID" ]; then
+            PID="$(pgrep -f 'scripts/read_telemetry.py' | head -n 1 || true)"
+          fi
+
+          if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
+            echo "Sending SIGINT to telemetry process (PID $PID)"
+            kill -INT "$PID" || true
+            # Wait up to 30s for the script to flush CSVs and exit cleanly.
+            for _ in $(seq 1 30); do
+              if ! kill -0 "$PID" 2>/dev/null; then
+                break
+              fi
+              sleep 1
+            done
+            if kill -0 "$PID" 2>/dev/null; then
+              echo "Telemetry process still alive after SIGINT; force-killing."
+              kill -KILL "$PID" || true
+            fi
+          else
+            echo "No running telemetry process found."
+          fi
+
+          echo "--- Telemetry log ---"
+          cat "$TELEMETRY_DIR/telemetry.log" || true
+          echo "--- Generated files ---"
+          ls -la "$TELEMETRY_DIR" || true
+
+      - name: Upload telemetry CSV
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: pcie-didt-telemetry-${{ matrix.config.board }}
+          if-no-files-found: warn
+          path: |
+            telemetry_output/*.csv
+            telemetry_output/telemetry.log
+
+      - name: Cleanup
+        if: ${{ always() }}
+        run: |
+          rm -rf "$TELEMETRY_DIR" "$VENV_DIR" || true
