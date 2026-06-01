@@ -1,15 +1,16 @@
+# Copyright (c) 2026 Tenstorrent AI ULC
+# SPDX-License-Identifier: Apache-2.0
+
 # Pretty much just rip out the telemetry code out of tt-smi and format it into a csv
 import os
-import sys
 import time
 import signal
 import argparse
 import pandas as pd
 
 import pyluwen
-from pyluwen import PciChip
 
-#optimize this
+# optimize this
 gddr_controller_temperature_map = {
     0: "GDDR01_TEMP",
     1: "GDDR01_TEMP",
@@ -18,14 +19,19 @@ gddr_controller_temperature_map = {
     4: "GDDR45_TEMP",
     5: "GDDR45_TEMP",
     6: "GDDR67_TEMP",
-    7: "GDDR67_TEMP"
+    7: "GDDR67_TEMP",
 }
 
 interrupt_flag = False
+
+
 def handle_interrupt(signum, frame):
     global interrupt_flag
     interrupt_flag = True
+
+
 signal.signal(signal.SIGINT, handle_interrupt)
+
 
 def dict_from_public_attrs(obj) -> dict:
     all_attrs = obj.__dir__()
@@ -35,8 +41,10 @@ def dict_from_public_attrs(obj) -> dict:
         ret[attr] = getattr(obj, attr)
     return ret
 
+
 def convert_signed_16_16_to_float(value):
     return (value >> 16) + (value & 0xFFFF) / 65536.0
+
 
 def extract_bottom_gddr(value, controller_id):
     if controller_id % 2 == 0:
@@ -45,6 +53,8 @@ def extract_bottom_gddr(value, controller_id):
         bottom = (value >> 16) & 0xFF
 
     return bottom
+
+
 def extract_top_gddr(value, controller_id):
     if controller_id % 2 == 0:
         top = (value >> 8) & 0xFF
@@ -52,6 +62,7 @@ def extract_top_gddr(value, controller_id):
         top = (value >> 24) & 0xFF
 
     return top
+
 
 def get_telemetry(telem_dicts, workload: str = "") -> dict:
     results = []
@@ -112,7 +123,7 @@ def get_telemetry(telem_dicts, workload: str = "") -> dict:
             else -1
         )
 
-        for key,value in gddr_controller_temperature_map.items():
+        for key, value in gddr_controller_temperature_map.items():
             telem[f"GDDR{key}_TEMP_BOTTOM"] = (
                 extract_bottom_gddr(int(map[value], 16), key)
                 if value in map.keys() and map[value] is not None
@@ -123,17 +134,26 @@ def get_telemetry(telem_dicts, workload: str = "") -> dict:
                 extract_top_gddr(int(map[value], 16), key)
                 if value in map.keys() and map[value] is not None
                 else -1
-        )
+            )
         results.append(telem)
     return results
 
+
 def parse_args():
-    parser = argparse.ArgumentParser(description="Read telemetry from Tenstorrent chips")
+    parser = argparse.ArgumentParser(
+        description="Read telemetry from Tenstorrent chips"
+    )
     parser.add_argument("--csv", type=str, default="telemetry", help="Output file")
-    parser.add_argument("--delay", type=float, default=0.1, help="Delay between telemetry reads")
-    parser.add_argument("--pad", action="store_true", help="Pad the output csv with -1 when read fails")
+    parser.add_argument(
+        "--delay", type=float, default=0.1, help="Delay between telemetry reads"
+    )
+    parser.add_argument(
+        "--pad", action="store_true", help="Pad the output csv with -1 when read fails"
+    )
     parser.add_argument("--vf", action="store_true", help="Run in vf sweep mode")
-    parser.add_argument("--workload", type=str, default="", help="Workload label stamped onto every row")
+    parser.add_argument(
+        "--workload", type=str, default="", help="Workload label stamped onto every row"
+    )
     return parser.parse_args()
 
 
@@ -156,11 +176,15 @@ if __name__ == "__main__":
             telem_structs = []
             for pl_chip in devices:
                 try:
-                    telem_structs.append(pl_chip.force_upgrade().as_bh().get_telemetry())
-                except Exception as e:
+                    telem_structs.append(
+                        pl_chip.force_upgrade().as_bh().get_telemetry()
+                    )
+                except Exception:
                     pass
 
-            json_map = [dict_from_public_attrs(telem_struct) for telem_struct in telem_structs]
+            json_map = [
+                dict_from_public_attrs(telem_struct) for telem_struct in telem_structs
+            ]
             telem_dicts = []
             for map in json_map:
                 temp_dict = {}
@@ -187,7 +211,27 @@ if __name__ == "__main__":
             if args.pad:
                 for csv in matching_csvs:
                     test_log = pd.read_csv(csv)
-                    test_log = pd.concat([test_log, pd.DataFrame([{"TIMESTAMP": time.ctime(), "WORKLOAD": args.workload, "BOARD_ID": -1, "VCORE": -1, "TDC": -1, "TDP": -1, "INPUT_POWER": -1, "ASIC_TEMP": -1, "AICLK": -1}])], ignore_index=True)
+                    test_log = pd.concat(
+                        [
+                            test_log,
+                            pd.DataFrame(
+                                [
+                                    {
+                                        "TIMESTAMP": time.ctime(),
+                                        "WORKLOAD": args.workload,
+                                        "BOARD_ID": -1,
+                                        "VCORE": -1,
+                                        "TDC": -1,
+                                        "TDP": -1,
+                                        "INPUT_POWER": -1,
+                                        "ASIC_TEMP": -1,
+                                        "AICLK": -1,
+                                    }
+                                ]
+                            ),
+                        ],
+                        ignore_index=True,
+                    )
                     test_log.to_csv(csv, index=False)
 
             if interrupt_flag:
