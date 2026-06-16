@@ -111,6 +111,20 @@ jobs:
           echo "SMC state dump:"
           python3 ./scripts/dump_smc_state.py
 
+      # Container jobs write into the bind-mounted workspace as root. Restore
+      # ownership to the host runner user so the next non-containerized job on
+      # the same self-hosted runner can wipe the workspace without EACCES.
+      - name: Restore workspace ownership
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          HOST_UID="$(stat -c '%u' "$(dirname "$GITHUB_WORKSPACE")")"
+          HOST_GID="$(stat -c '%g' "$(dirname "$GITHUB_WORKSPACE")")"
+          echo "Restoring ownership of $GITHUB_WORKSPACE to ${HOST_UID}:${HOST_GID}"
+          chown -R "${HOST_UID}:${HOST_GID}" "$GITHUB_WORKSPACE" 2>/dev/null \
+            || sudo chown -R "${HOST_UID}:${HOST_GID}" "$GITHUB_WORKSPACE" \
+            || true
+
   tensix-column-test:
     needs: [gen-config, build-fw-artifact]
     runs-on: p150a-jtag
@@ -164,3 +178,17 @@ jobs:
             exit 1
           fi
           echo "Successfully verified that tensix-enabled column count is correct: $TENSIX_COUNT"
+
+      # Container jobs write into the bind-mounted workspace as root. Restore
+      # ownership to the host runner user so the next non-containerized job on
+      # the same self-hosted runner can wipe the workspace without EACCES.
+      - name: Restore workspace ownership
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          HOST_UID="$(stat -c '%u' "$(dirname "$GITHUB_WORKSPACE")")"
+          HOST_GID="$(stat -c '%g' "$(dirname "$GITHUB_WORKSPACE")")"
+          echo "Restoring ownership of $GITHUB_WORKSPACE to ${HOST_UID}:${HOST_GID}"
+          chown -R "${HOST_UID}:${HOST_GID}" "$GITHUB_WORKSPACE" 2>/dev/null \
+            || sudo chown -R "${HOST_UID}:${HOST_GID}" "$GITHUB_WORKSPACE" \
+            || true
