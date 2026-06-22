@@ -8,7 +8,14 @@
 
 #include <stdint.h>
 #include "noc2axi.h"
-#include <zephyr/drivers/misc/bh_fwtable.h>
+
+/* Default PCIe BAR sizes, in MiB. Shared between pcie.c and the recovery
+ * chip-info backend (chip_info_static.c) so the synthesized recovery defaults
+ * stay in sync with the values pcie.c programs.
+ */
+#define PCIE_BAR0_SIZE_DEFAULT_MB 512
+#define PCIE_BAR2_SIZE_DEFAULT_MB 1
+#define PCIE_BAR4_SIZE_DEFAULT_MB 32768
 
 typedef enum {
 	EndPoint = 0,
