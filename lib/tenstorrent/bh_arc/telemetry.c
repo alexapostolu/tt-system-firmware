@@ -4,6 +4,26 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/*
+ * Telemetry table plus the small accessors that the always-compiled message
+ * handlers use (e.g. cm2dm_msg reads tags, noc_init records the NOC-translation
+ * state) are built unconditionally so they are available to SMC recovery.
+ *
+ * The periodic collection of dynamic telemetry (clocks, GDDR, ETH, power, fan,
+ * ...) and one-time population of the static values depend on the SPI firmware
+ * tables and many mission-only subsystems, so that code is compiled only when
+ * CONFIG_BH_FWTABLE is set (mission firmware, not recovery).
+ */
+
+#include "telemetry.h"
+
+#include <float.h> /* for FLT_MAX */
+#include <math.h>  /* for floor */
+#include <stdint.h>
+
+#include <zephyr/logging/log.h>
+
+#ifdef CONFIG_BH_FWTABLE
 #include "aiclk_ppm.h"
 #include "cat.h"
 #include "cm2dm_msg.h"
@@ -13,35 +33,22 @@
 #include "reg.h"
 #include "regulator.h"
 #include "status_reg.h"
-#include "telemetry.h"
 #include "telemetry_internal.h"
 #include "gddr.h"
 #include "eth.h"
 
-#include <float.h> /* for FLT_MAX */
-#include <math.h>  /* for floor */
-#include <stdint.h>
 #include <string.h>
 
 #include <tenstorrent/post_code.h>
 #include <tenstorrent/smbus_target.h>
-#include <zephyr/logging/log.h>
 #include <zephyr/drivers/misc/bh_fwtable.h>
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
 #include <zephyr/drivers/clock_control/clock_control_tt_bh.h>
 #include <zephyr/drivers/clock_control.h>
+#endif
 
 LOG_MODULE_REGISTER(telemetry, CONFIG_TT_APP_LOG_LEVEL);
-
-#define RESET_UNIT_STRAP_REGISTERS_L_REG_ADDR 0x80030D20
-
-static const struct device *const fwtable_dev = DEVICE_DT_GET(DT_NODELABEL(fwtable));
-static const struct device *const pll_dev_0 = DEVICE_DT_GET_OR_NULL(DT_NODELABEL(pll0));
-static const struct device *const pll_dev_1 = DEVICE_DT_GET_OR_NULL(DT_NODELABEL(pll1));
-static const struct device *const pll_dev_4 = DEVICE_DT_GET_OR_NULL(DT_NODELABEL(pll4));
-static const struct device *const smbus_target_dev =
-	DEVICE_DT_GET_OR_NULL(DT_NODELABEL(smbus_target0));
 
 /**
  * @defgroup telemetry_table Telemetry Table
@@ -89,21 +96,6 @@ struct telemetry_table {
 	 */
 	uint32_t telemetry[TAG_COUNT];
 };
-
-/* Global variables */
-
-/**
- * @brief Documentation for telemetry table variables.
- *
- * This page contains detailed documentation for the telemetry table and its associated buffer.
- */
-
-/**
- * @brief Global telemetry table containing metadata and telemetry data.
- *
- * This table is used to store telemetry information, including tag mappings and data values.
- * The address of this table is published in the @ref TELEMETRY_TABLE_REG_ADDR register.
- */
 
 /* clang-format off */
 static struct telemetry_table telemetry_table = {
@@ -186,12 +178,6 @@ static struct telemetry_table telemetry_table = {
  */
 static uint32_t *telemetry = &telemetry_table.telemetry[0];
 
-/** @} */ /* end of telemetry_table group */
-
-static struct k_timer telem_update_timer;
-static struct k_work telem_update_worker;
-static int telem_update_interval = 100;
-
 uint32_t ConvertFloatToTelemetry(float value)
 {
 	/* Convert float to signed int 16.16 format */
@@ -221,6 +207,63 @@ float ConvertTelemetryToFloat(int32_t value)
 		return value / 65536.0;
 	}
 }
+
+void UpdateDmFwVersion(uint32_t bl_version, uint32_t app_version)
+{
+	telemetry[TAG_DM_BL_FW_VERSION] = bl_version;
+	telemetry[TAG_DM_APP_FW_VERSION] = app_version;
+}
+
+void UpdateTelemetryNocTranslation(bool translation_enabled)
+{
+	/* Note that this may be called before init_telemetry. */
+	telemetry[TAG_NOC_TRANSLATION] = translation_enabled;
+}
+
+void UpdateTelemetryBoardPowerLimit(uint32_t power_limit)
+{
+	telemetry[TAG_BOARD_POWER_LIMIT] = power_limit;
+}
+
+void UpdateTelemetryTdpLimit(uint32_t tdp_limit)
+{
+	telemetry[TAG_TDP_LIMIT_MAX] = tdp_limit;
+}
+
+void UpdateTelemetryThermTripCount(uint16_t therm_trip_count)
+{
+	telemetry[TAG_THERM_TRIP_COUNT] = therm_trip_count;
+}
+
+void UpdateTelemetryHostAiclkLimit(uint32_t fmax)
+{
+	telemetry[TAG_HOST_AICLK_LIMIT] = fmax;
+}
+
+bool GetTelemetryTagValid(uint16_t tag)
+{
+	return tag < TAG_COUNT;
+}
+
+uint32_t GetTelemetryTag(uint16_t tag)
+{
+	if (tag >= TAG_COUNT) {
+		return -1;
+	}
+	return telemetry[tag];
+}
+
+#ifdef CONFIG_BH_FWTABLE
+static const struct device *const fwtable_dev = DEVICE_DT_GET(DT_NODELABEL(fwtable));
+static const struct device *const pll_dev_0 = DEVICE_DT_GET_OR_NULL(DT_NODELABEL(pll0));
+static const struct device *const pll_dev_1 = DEVICE_DT_GET_OR_NULL(DT_NODELABEL(pll1));
+static const struct device *const pll_dev_4 = DEVICE_DT_GET_OR_NULL(DT_NODELABEL(pll4));
+static const struct device *const smbus_target_dev =
+	DEVICE_DT_GET_OR_NULL(DT_NODELABEL(smbus_target0));
+
+static struct k_timer telem_update_timer;
+static struct k_work telem_update_worker;
+static int telem_update_interval = 100;
 
 static void UpdateEthTelemetry(void)
 {
@@ -511,48 +554,4 @@ void StartTelemetryTimer(void)
 	k_timer_start(&telem_update_timer, K_MSEC(telem_update_interval),
 		      K_MSEC(telem_update_interval));
 }
-
-void UpdateDmFwVersion(uint32_t bl_version, uint32_t app_version)
-{
-	telemetry[TAG_DM_BL_FW_VERSION] = bl_version;
-	telemetry[TAG_DM_APP_FW_VERSION] = app_version;
-}
-
-void UpdateTelemetryNocTranslation(bool translation_enabled)
-{
-	/* Note that this may be called before init_telemetry. */
-	telemetry[TAG_NOC_TRANSLATION] = translation_enabled;
-}
-
-void UpdateTelemetryBoardPowerLimit(uint32_t power_limit)
-{
-	telemetry[TAG_BOARD_POWER_LIMIT] = power_limit;
-}
-
-void UpdateTelemetryTdpLimit(uint32_t tdp_limit)
-{
-	telemetry[TAG_TDP_LIMIT_MAX] = tdp_limit;
-}
-
-void UpdateTelemetryThermTripCount(uint16_t therm_trip_count)
-{
-	telemetry[TAG_THERM_TRIP_COUNT] = therm_trip_count;
-}
-
-void UpdateTelemetryHostAiclkLimit(uint32_t fmax)
-{
-	telemetry[TAG_HOST_AICLK_LIMIT] = fmax;
-}
-
-bool GetTelemetryTagValid(uint16_t tag)
-{
-	return tag < TAG_COUNT;
-}
-
-uint32_t GetTelemetryTag(uint16_t tag)
-{
-	if (tag >= TAG_COUNT) {
-		return -1;
-	}
-	return telemetry[tag];
-}
+#endif /* CONFIG_BH_FWTABLE */
