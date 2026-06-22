@@ -17,8 +17,8 @@
 #include <zephyr/sys/util.h>
 
 /* Serdes count by board: P300 variants and UBB (Galaxy) use 1, P100/P150 use 2. */
-#if defined(CONFIG_BOARD_REVISION_P300A) || defined(CONFIG_BOARD_REVISION_P300B) ||                 \
-	defined(CONFIG_BOARD_REVISION_P300C) || defined(CONFIG_BOARD_REVISION_GALAXY) ||            \
+#if defined(CONFIG_BOARD_REVISION_P300A) || defined(CONFIG_BOARD_REVISION_P300B) ||                \
+	defined(CONFIG_BOARD_REVISION_P300C) || defined(CONFIG_BOARD_REVISION_GALAXY) ||           \
 	defined(CONFIG_BOARD_REVISION_GALAXY_REVC)
 #define RECOVERY_NUM_SERDES 1
 #else

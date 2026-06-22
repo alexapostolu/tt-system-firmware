@@ -23,14 +23,18 @@
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/drivers/watchdog.h>
-#include <zephyr/drivers/misc/bh_fwtable.h>
 #include <zephyr/storage/flash_map.h>
 #include <zephyr/dfu/mcuboot.h>
+#ifdef CONFIG_BH_FWTABLE
+#include <zephyr/drivers/misc/bh_fwtable.h>
+#endif
 
 LOG_MODULE_REGISTER(main, CONFIG_TT_APP_LOG_LEVEL);
 
 static const struct device *const wdt0 = DEVICE_DT_GET(DT_NODELABEL(wdt0));
+#ifdef CONFIG_BH_FWTABLE
 static const struct device *const fwtable_dev = DEVICE_DT_GET(DT_NODELABEL(fwtable));
+#endif
 
 BUILD_ASSERT(PARTITION_EXISTS(cmfw), "cmfw fixed-partition does not exist");
 
@@ -39,39 +43,39 @@ int main(void)
 	SetPostCode(POST_CODE_SRC_CMFW, POST_CODE_ZEPHYR_INIT_DONE);
 	printk("Tenstorrent Blackhole CMFW %s\n", APP_VERSION_STRING);
 
-	if (!IS_ENABLED(CONFIG_TT_SMC_RECOVERY)) {
-		if (tt_bh_fwtable_get_fw_table(fwtable_dev)->feature_enable.aiclk_ppm_en) {
-			uint32_t err0 = ReadReg(STATUS_ERROR_STATUS0_REG_ADDR);
+#ifdef CONFIG_BH_FWTABLE
+	if (tt_bh_fwtable_get_fw_table(fwtable_dev)->feature_enable.aiclk_ppm_en) {
+		uint32_t err0 = ReadReg(STATUS_ERROR_STATUS0_REG_ADDR);
 
-			if (err0 & BIT(INIT_STAGE_REGULATOR)) {
-				LOG_ERR("Not enabling AICLK PPM due to regulator init error");
-			} else {
-				/* DVFS should get enabled if AICLK PPM or L2CPUCLK PPM is enabled
-				 * We currently don't have plans to implement L2CPUCLK PPM,
-				 * so currently, dvfs_enable == aiclk_ppm_enable
-				 */
-				InitDVFS();
-			}
+		if (err0 & BIT(INIT_STAGE_REGULATOR)) {
+			LOG_ERR("Not enabling AICLK PPM due to regulator init error");
+		} else {
+			/* DVFS should get enabled if AICLK PPM or L2CPUCLK PPM is enabled
+			 * We currently don't have plans to implement L2CPUCLK PPM,
+			 * so currently, dvfs_enable == aiclk_ppm_enable
+			 */
+			InitDVFS();
 		}
 	}
+#endif
 
-	if (!IS_ENABLED(CONFIG_TT_SMC_RECOVERY)) {
-		init_telemetry(APPVERSION);
-		if (tt_bh_fwtable_get_fw_table(fwtable_dev)->feature_enable.fan_ctrl_en) {
-			init_fan_ctrl();
-		}
-
-		/* These timers are split out from their init functions since their work tasks have
-		 * i2c conflicts with other init functions.
-		 *
-		 * Note: The above issue would be solved by using Zephyr's driver model.
-		 */
-		StartTelemetryTimer();
-		if (dvfs_enabled) {
-			StartDVFSTimer();
-		}
-		StartGddrThermTripMonitor();
+#ifdef CONFIG_BH_FWTABLE
+	init_telemetry(APPVERSION);
+	if (tt_bh_fwtable_get_fw_table(fwtable_dev)->feature_enable.fan_ctrl_en) {
+		init_fan_ctrl();
 	}
+
+	/* These timers are split out from their init functions since their work tasks have
+	 * i2c conflicts with other init functions.
+	 *
+	 * Note: The above issue would be solved by using Zephyr's driver model.
+	 */
+	StartTelemetryTimer();
+	if (dvfs_enabled) {
+		StartDVFSTimer();
+	}
+	StartGddrThermTripMonitor();
+#endif
 
 	Dm2CmReadyRequest();
 
