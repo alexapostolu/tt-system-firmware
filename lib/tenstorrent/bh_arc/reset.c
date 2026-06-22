@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include "chip_info.h"
 #include "cm2dm_msg.h"
 #include "eth.h"
 #include "gddr.h"
@@ -28,8 +29,6 @@
 #include <tenstorrent/smc_msg.h>
 #include <tenstorrent/post_code.h>
 #include <tenstorrent/sys_init_defines.h>
-#include <tenstorrent/tt_boot_fs.h>
-#include <zephyr/drivers/misc/bh_fwtable.h>
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
@@ -47,7 +46,6 @@ static const struct device *const pll_devs[] = {DT_INST_FOREACH_STATUS_OKAY(PLL_
 
 LOG_MODULE_REGISTER(InitHW, CONFIG_TT_APP_LOG_LEVEL);
 
-static const struct device *const fwtable_dev = DEVICE_DT_GET(DT_NODELABEL(fwtable));
 uint32_t error_status0;
 
 void record_init_failure(enum init_stage_id stage)
@@ -308,7 +306,7 @@ static __maybe_unused uint8_t ReinitTensix(const union request *req, struct resp
 	 */
 	NocInit();
 	TensixInit();
-	if (tt_bh_fwtable_get_fw_table(fwtable_dev)->feature_enable.noc_translation_en) {
+	if (bh_chip_info_feature_noc_translation_en()) {
 		InitNocTranslationFromHarvesting();
 	}
 
@@ -331,9 +329,8 @@ static int DeassertTileResets(void)
 	 * - If magic marker absent: legacy DMC, skip cable fault detection
 	 */
 	uint32_t raw_value = ReadReg(DMC_CABLE_POWER_LIMIT_REG_ADDR);
-	uint8_t board_type = tt_bh_fwtable_get_board_type(fwtable_dev);
 
-	if (board_type == BOARDTYPE_UBB) {
+	if (bh_chip_info_is_ubb()) {
 		/* Galaxy boards have no DMC; CPLD never sets cable power limit */
 		LOG_INF("Galaxy board detected, no cable fault check needed");
 	} else if ((raw_value & CABLE_POWER_LIMIT_MAGIC_MASK) == CABLE_POWER_LIMIT_MAGIC) {
