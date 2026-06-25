@@ -59,6 +59,65 @@ jobs:
             wh-blob:
               - 'zephyr/blobs/fw_pack-wormhole.tar.gz'
 
+  build-bh-mod:
+    name: Build bh-mod
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/tenstorrent/tt-system-firmware/ci-image:v19.11.0
+    env:
+      LUWEN_REPO: ${{ vars.LUWEN_REPO || 'https://github.com/tenstorrent/luwen.git' }}
+      # Pinned to an immutable commit for reproducible builds; override via the LUWEN_REF repo var.
+      LUWEN_REF: ${{ vars.LUWEN_REF || 'f58459da323b466e36ea065bed0fa4dc456eb3ab' }}
+    steps:
+      - name: Build bh-mod
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          command -v protoc >/dev/null 2>&1 || missing+=(protobuf-compiler)
+          command -v curl   >/dev/null 2>&1 || missing+=(curl ca-certificates)
+          command -v git    >/dev/null 2>&1 || missing+=(git)
+          if [ ${#missing[@]} -gt 0 ]; then
+            apt-get update && apt-get install -y --no-install-recommends "${missing[@]}"
+          fi
+          protoc --version
+          # Ensure a Rust toolchain is available
+          if ! command -v cargo >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+              | sh -s -- -y --default-toolchain stable --profile minimal --no-modify-path
+          fi
+          export PATH="$HOME/.cargo/bin:$PATH"
+          cargo --version
+          # Shallow-fetch the pinned ref. Using fetch (not clone --branch) so that
+          # LUWEN_REF can be a commit SHA, tag, or branch name.
+          rm -rf "$HOME/luwen"
+          mkdir -p "$HOME/luwen"
+          git -C "$HOME/luwen" init -q
+          git -C "$HOME/luwen" remote add origin "$LUWEN_REPO"
+          git -C "$HOME/luwen" fetch --depth 1 origin "$LUWEN_REF"
+          git -C "$HOME/luwen" checkout -q FETCH_HEAD
+          # Record the exact source revision the binary was built from for provenance.
+          LUWEN_SHA="$(git -C "$HOME/luwen" rev-parse HEAD)"
+          cargo build --release -p bh-mod --manifest-path "$HOME/luwen/Cargo.toml"
+          install -D -m 0755 "$HOME/luwen/target/release/bh-mod" bh-mod/bh-mod
+          printf '%s\n' "$LUWEN_SHA" > bh-mod/luwen.sha
+          echo "Built bh-mod from luwen $LUWEN_SHA"
+          ./bh-mod/bh-mod --help
+
+      - name: Upload bh-mod artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bh-mod
+          # Include the luwen.sha provenance file alongside the binary.
+          path: |
+            bh-mod/bh-mod
+            bh-mod/luwen.sha
+          if-no-files-found: error
+          # Use the default (longer) retention since this binary is also handed
+          # to the deployment team, not just consumed by the e2e jobs.
+          retention-days: 90
+
   hardware-smoke-test:
     name: BH Hardware Smoke Test on ${{ matrix.config.board }}
     if: github.event_name != 'schedule'
@@ -155,7 +214,7 @@ jobs:
   smoke-e2e-test:
     name: BH Smoke E2E Test on ${{ matrix.config.board }}
     if: github.event_name != 'schedule'
-    needs: [gen-config]
+    needs: [gen-config, build-bh-mod]
     strategy:
       fail-fast: false
       matrix:
@@ -204,32 +263,17 @@ jobs:
           fi
           echo "SIGNATURE_KEY_FILE=$SIGNATURE_KEY_FILE" >> "$GITHUB_ENV"
 
-      # Build bh-mod to be used by ccfgovr tests
-      - name: Build bh-mod
+      - name: Download bh-mod
+        uses: actions/download-artifact@v4
+        with:
+          name: bh-mod
+          path: bh-mod
+
+      - name: Install bh-mod
         shell: bash
-        env:
-          LUWEN_REPO: ${{ vars.LUWEN_REPO || 'https://github.com/tenstorrent/luwen.git' }}
-          LUWEN_REF: ${{ vars.LUWEN_REF || 'main' }}
         run: |
           set -euo pipefail
-          missing=()
-          command -v protoc >/dev/null 2>&1 || missing+=(protobuf-compiler)
-          command -v curl   >/dev/null 2>&1 || missing+=(curl ca-certificates)
-          if [ ${#missing[@]} -gt 0 ]; then
-            apt-get update && apt-get install -y --no-install-recommends "${missing[@]}"
-          fi
-          protoc --version
-          # Ensure a Rust toolchain is available
-          if ! command -v cargo >/dev/null 2>&1; then
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-              | sh -s -- -y --default-toolchain stable --profile minimal --no-modify-path
-          fi
-          export PATH="$HOME/.cargo/bin:$PATH"
-          cargo --version
-          rm -rf "$HOME/luwen"
-          git clone --depth 1 --branch "$LUWEN_REF" "$LUWEN_REPO" "$HOME/luwen"
-          cargo build --release -p bh-mod --manifest-path "$HOME/luwen/Cargo.toml"
-          install -m 0755 "$HOME/luwen/target/release/bh-mod" /usr/local/bin/bh-mod
+          install -m 0755 bh-mod/bh-mod /usr/local/bin/bh-mod
           bh-mod --help
 
       - name: run-e2e-tests
