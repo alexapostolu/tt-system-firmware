@@ -1,12 +1,11 @@
 name: HW Soak
 
-# Run long tests once daily, at 05:21 UTC
 on:
   pull_request:
     types:
       - labeled
   schedule:
-    - cron: "21 5 * * *"
+    - cron: "0 5 * * *"
   workflow_dispatch: {}
 
 concurrency:
@@ -14,33 +13,33 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  long-test-check:
+  # Single source of truth for whether the long tests should run. Downstream
+  # jobs gate on this via `needs` so the condition lives in exactly one place.
+  should-run:
+    if: >
+      github.event_name == 'schedule'
+      || github.event_name == 'workflow_dispatch'
+      || github.event.label.name == 'long-tests'
     runs-on: ubuntu-24.04
-    if: ${{ github.event_name == 'schedule' ||  github.event.label.name == 'long-tests' }}
     steps:
-      - name: Long Test Check
-        run: |
-          echo "Long tests are required."
+      - run: echo "Long tests will run."
 
   build-fw-artifact:
-    needs: long-test-check
+    needs: should-run
     uses: ./.github/workflows/build-fw.yml
     secrets:
       SIGNATURE_KEY: ${{ secrets.SIGNATURE_KEY }}
 
   gen-config:
-    needs: long-test-check
+    needs: should-run
     runs-on: ubuntu-24.04
     outputs:
-      matrix-config: ${{ steps.gen-config.outputs.matrix-config }}
+      matrix-config: ${{ steps.gen.outputs.matrix-config }}
     steps:
       - uses: actions/checkout@v4
-      - id: gen-config
-        shell: bash
+      - id: gen
         run: |
-          # Filter to only Blackhole boards (product == "bh"), then remove the product field
-          MATRIX_CONFIG="$(jq -c '[.[] | select(.product == "bh") | del(.product)]' .github/ci_boards.json)"
-          echo "matrix-config=$MATRIX_CONFIG" | tee -a $GITHUB_OUTPUT
+          echo "matrix-config=$(jq -c '.bh' .github/ci_boards.json)" | tee -a $GITHUB_OUTPUT
 
   e2e-stress-test:
     name: BH E2E Stress Test on ${{ matrix.config.board }}
@@ -49,7 +48,7 @@ jobs:
       fail-fast: false
       matrix:
         config: ${{ fromJson(needs.gen-config.outputs.matrix-config) }}
-    runs-on: ${{ matrix.config.runs-on }}
+    runs-on: ${{ matrix.config.board }}
     container:
       image: ghcr.io/tenstorrent/tt-system-firmware/ci-image:v19.11.0
       volumes:
@@ -113,7 +112,7 @@ jobs:
 
   tensix-column-test:
     needs: [gen-config, build-fw-artifact]
-    runs-on: p150a-jtag
+    runs-on: p150a
     container:
       image: ghcr.io/tenstorrent/tt-system-firmware/ci-image:v19.11.0
       volumes:

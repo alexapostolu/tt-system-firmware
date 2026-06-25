@@ -171,10 +171,10 @@ class Job(BaseModel):
     failure_signature: Optional[str] = Field(None, description="Failure signature.")
     failure_description: Optional[str] = Field(None, description="Failure description.")
     runner_label: Optional[str] = Field(
-        None, description="GitHub CI runner label (e.g. 'p150a-jtag')."
+        None, description="GitHub CI runner label (e.g. 'p150a')."
     )
     board_name: Optional[str] = Field(
-        None, description="Board identifier (e.g. 'p150a', 'galaxy', 'n150')."
+        None, description="Board identifier (e.g. 'p150a', 'bh-galaxy', 'n150')."
     )
     board_product_type: Optional[BoardProductType] = Field(
         None,

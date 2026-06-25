@@ -891,7 +891,7 @@ def dirty_reset_test():
 
 
 @pytest.mark.skipif(
-    "os.getenv('BOARD') in ('galaxy', 'loudbox', 'quietbox2')",
+    "os.getenv('BOARD') in ('bh-galaxy', 'loudbox', 'quietbox2')",
     reason="Galaxy: no DMC path; Loudbox/Quietbox2: no STLink for OpenOCD dirty reset",
 )
 def test_dirty_reset():

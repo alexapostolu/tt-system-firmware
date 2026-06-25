@@ -28,21 +28,14 @@ jobs:
   gen-config:
     runs-on: ubuntu-24.04
     outputs:
-      matrix-config-bh: ${{ steps.gen-config.outputs.matrix-config-bh }}
-      matrix-config-wh: ${{ steps.gen-config.outputs.matrix-config-wh }}
+      matrix-config-bh: ${{ steps.gen.outputs.matrix-config-bh }}
+      matrix-config-wh: ${{ steps.gen.outputs.matrix-config-wh }}
     steps:
       - uses: actions/checkout@v4
-      - id: gen-config
-        shell: bash
+      - id: gen
         run: |
-          # Filter to only Blackhole boards (product == "bh"), then remove the product field
-          # Exclude galaxy, loudbox, and quietbox2 since they have no STLink/recovery path for smoke tests
-          MATRIX_CONFIG_BH="$(jq -c '[.[] | select((.product == "bh") and (.board != "galaxy") and (.board != "loudbox") and (.board != "quietbox2")) | del(.product)]' .github/ci_boards.json)"
-          echo "matrix-config-bh=$MATRIX_CONFIG_BH" | tee -a $GITHUB_OUTPUT
-
-          # Filter to only Wormhole boards (product == "wh"), then remove the product field
-          MATRIX_CONFIG_WH="$(jq -c '[.[] | select(.product == "wh") | del(.product)]' .github/ci_boards.json)"
-          echo "matrix-config-wh=$MATRIX_CONFIG_WH" | tee -a $GITHUB_OUTPUT
+          echo "matrix-config-bh=$(jq -c '.bh | map(select(.supports_smoke == true))' .github/ci_boards.json)" | tee -a $GITHUB_OUTPUT
+          echo "matrix-config-wh=$(jq -c '.wh | map(select(.supports_smoke == true))' .github/ci_boards.json)" | tee -a $GITHUB_OUTPUT
 
   detect-changes:
     if: github.event_name == 'pull_request'
@@ -69,7 +62,7 @@ jobs:
       fail-fast: false
       matrix:
         config: ${{ fromJson(needs.gen-config.outputs.matrix-config-bh) }}
-    runs-on: ${{ matrix.config.runs-on }}
+    runs-on: ${{ matrix.config.board }}
     container:
       image: ghcr.io/tenstorrent/tt-system-firmware/ci-image:v19.11.0
       volumes:
@@ -160,7 +153,7 @@ jobs:
       fail-fast: false
       matrix:
         config: ${{ fromJson(needs.gen-config.outputs.matrix-config-bh) }}
-    runs-on: ${{ matrix.config.runs-on }}
+    runs-on: ${{ matrix.config.board }}
     container:
       image: ghcr.io/tenstorrent/tt-system-firmware/ci-image:v19.11.0
       volumes:
@@ -275,7 +268,7 @@ jobs:
       fail-fast: false
       matrix:
         config: ${{ fromJson(needs.gen-config.outputs.matrix-config-wh) }}
-    runs-on: ${{ matrix.config.runs-on }}
+    runs-on: ${{ matrix.config.board }}
     container:
       image: ghcr.io/tenstorrent/tt-system-firmware/ci-image:v19.11.0
       volumes:

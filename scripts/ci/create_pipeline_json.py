@@ -158,11 +158,21 @@ def get_firmware_versions() -> dict:
 
 
 def load_ci_boards() -> list[dict]:
-    """Load ci_boards.json for board/runner/product mapping."""
-    if CI_BOARDS_PATH.exists():
-        with open(CI_BOARDS_PATH) as f:
-            return json.load(f)
-    return []
+    if not CI_BOARDS_PATH.exists():
+        return []
+    with open(CI_BOARDS_PATH) as f:
+        data = json.load(f)
+    if isinstance(data, dict):
+        return [
+            {
+                **entry,
+                "product": product,
+                "runs-on": entry.get("runs-on") or entry.get("board"),
+            }
+            for product, entries in data.items()
+            for entry in entries
+        ]
+    return data
 
 
 def detect_board_from_job(
@@ -175,7 +185,7 @@ def detect_board_from_job(
     for entry in ci_boards:
         board_name = entry["board"]
         runs_on = entry.get("runs-on", "")
-        if board_name in job_name or runs_on == job_label:
+        if board_name in job_name or (runs_on and runs_on == job_label):
             product = entry.get("product")
             return (
                 board_name,
