@@ -118,6 +118,8 @@ ETH_RESET_ERR_INVALID_MASK = 1
 
 # Characterization submessage IDs
 TT_SUB_MSG_SET_HOST_REQUESTED_FMIN = 0x1
+TT_SUB_MSG_SET_KERNEL_THROTTLER_ENABLED = 0x2
+TT_SUB_MSG_SET_KERNEL_THROTTLER_STOP_NOPS_FREQ = 0x3
 
 # Telemetry tags
 TAG_TDP = 7
@@ -127,6 +129,7 @@ TAG_CM_FW_VERSION = 29
 TAG_ENABLED_ETH = 35
 TAG_INPUT_POWER = 54
 TAG_HOST_AICLK_LIMIT = 70
+TAG_KERNEL_THROTTLER = 75
 
 NUM_PD = 16
 NUM_VM = 8
@@ -1679,6 +1682,96 @@ def test_characterisation_host_fmin_out_of_range(arc_chip_dut, asic_id):
     logger.info("Correctly rejected fmin value 100 (too low)")
 
 
+def test_characterisation_kernel_throttler(arc_chip_dut, asic_id):
+    """
+    Validates the runtime kernel-throttler-at-AICLK-floor characterization messages.
+
+    TAG_KERNEL_THROTTLER telemetry encodes the active config:
+    - bit 0: feature enabled
+    - bits [31:16]: stop-NOPs frequency in MHz
+    """
+    arc_chip = pyluwen.detect_chips()[asic_id]
+
+    baseline = read_telem(arc_chip, TAG_KERNEL_THROTTLER)
+    logger.info(f"Baseline TAG_KERNEL_THROTTLER: 0x{baseline:08x}")
+
+    def set_enabled(value):
+        return arc_chip.as_bh().arc_msg_buf(
+            [
+                TT_SMC_MSG_CHARACTERISATION
+                | TT_SUB_MSG_SET_KERNEL_THROTTLER_ENABLED << 8,
+                value,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+            ]
+        )
+
+    def set_stop_freq(value):
+        return arc_chip.as_bh().arc_msg_buf(
+            [
+                TT_SMC_MSG_CHARACTERISATION
+                | TT_SUB_MSG_SET_KERNEL_THROTTLER_STOP_NOPS_FREQ << 8,
+                value,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+            ]
+        )
+
+    # Enable the feature at runtime.
+    response = set_enabled(1)
+    assert response[0] == 0, "Failed to enable kernel throttler at floor"
+    time.sleep(0.2)
+    assert read_telem(arc_chip, TAG_KERNEL_THROTTLER) & 1 == 1, (
+        "TAG_KERNEL_THROTTLER enabled bit not set after enable"
+    )
+
+    # Set a runtime stop frequency within [AICLK_FMIN_MIN=200, AICLK_FMIN_MAX=1400].
+    NEW_STOP_FREQ = 800
+    response = set_stop_freq(NEW_STOP_FREQ)
+    assert response[0] == 0, f"Failed to set stop freq to {NEW_STOP_FREQ} MHz"
+    time.sleep(0.2)
+    measured = read_telem(arc_chip, TAG_KERNEL_THROTTLER)
+    assert (measured >> 16) & 0xFFFF == NEW_STOP_FREQ, (
+        f"TAG_KERNEL_THROTTLER stop freq ({(measured >> 16) & 0xFFFF}) "
+        f"not set to {NEW_STOP_FREQ} MHz"
+    )
+
+    # Out-of-range stop frequencies are rejected.
+    assert set_stop_freq(9999)[0] != 0, (
+        "Expected error for out-of-range stop freq (too high)"
+    )
+    assert set_stop_freq(100)[0] != 0, (
+        "Expected error for out-of-range stop freq (too low)"
+    )
+
+    # Restore the fwtable default stop frequency (value 0).
+    response = set_stop_freq(0)
+    assert response[0] == 0, "Failed to restore default stop freq"
+
+    # Invalid enable value is rejected.
+    assert set_enabled(2)[0] != 0, "Expected error for invalid enable value"
+
+    # Disable the feature again.
+    response = set_enabled(0)
+    assert response[0] == 0, "Failed to disable kernel throttler at floor"
+    time.sleep(0.2)
+    assert read_telem(arc_chip, TAG_KERNEL_THROTTLER) & 1 == 0, (
+        "TAG_KERNEL_THROTTLER enabled bit still set after disable"
+    )
+
+    # Restore the baseline configuration.
+    set_enabled(baseline & 1)
+    set_stop_freq((baseline >> 16) & 0xFFFF)
+
+
 def test_bindesc(arc_chip_dut, asic_id):
     """
     Validates that the version descriptor matches what is running on
@@ -1716,47 +1809,95 @@ def test_bindesc(arc_chip_dut, asic_id):
 
 def test_ccfgovr_bh_mod(unlaunched_dut: DeviceAdapter, asic_id: int):
     """
-    Test bh-mod can correctly set TDP limit, and that it is not overriden
-    by tt-flash.
+    Test bh-mod can persist overrides in SPI flash via the A/B ccfgovr mechanism,
+    and that they are not overridden by tt-flash.
+
+    Covers:
+    - chip_limits.tdp_limit
+    - the kernel-throttler-at-AICLK-floor config
+      (feature_enable.kernel_throttler_at_floor_en and
+      chip_limits.kernel_throttler_stop_nops_freq), exposed through
+      TAG_KERNEL_THROTTLER telemetry:
+        - bit 0: feature enabled
+        - bits [31:16]: stop-NOPs frequency in MHz
     """
     bh_mod = shutil.which("bh-mod") or os.path.expanduser("~/bh-mod")
     if not os.path.isfile(bh_mod):
         pytest.skip("bh-mod not found (PATH or ~/bh-mod)")
 
-    # Get the TDP limit
+    # Capture baselines.
     chip = pyluwen.detect_chips()[asic_id]
-    baseline = chip.get_telemetry().tdp_limit_max
-    target = baseline - 5
+    tdp_baseline = chip.get_telemetry().tdp_limit_max
+    kt_baseline = read_telem(chip, TAG_KERNEL_THROTTLER)
+    logger.info(f"Baseline tdp_limit_max: {tdp_baseline}")
+    logger.info(f"Baseline kernel_throttler: 0x{kt_baseline:08x}")
 
-    # Set new TDP limit
+    tdp_target = tdp_baseline - 5
+    TARGET_STOP_FREQ = 800  # MHz, within [AICLK_FMIN_MIN=200, AICLK_FMIN_MAX=1400]
+    kt_expected = 1 | (TARGET_STOP_FREQ << 16)
+
+    # Persist overrides for both the TDP limit and the kernel throttler config.
     result = subprocess.run(
-        [bh_mod, "--reset-timeout=60s", "set", f"chip_limits.tdp_limit={target}"],
+        [
+            bh_mod,
+            "--reset-timeout=60s",
+            "set",
+            f"chip_limits.tdp_limit={tdp_target}",
+            "feature_enable.kernel_throttler_at_floor_en=true",
+            f"chip_limits.kernel_throttler_stop_nops_freq={TARGET_STOP_FREQ}",
+        ],
         capture_output=True,
         check=False,
     )
     assert result.returncode == 0, f"bh-mod set failed, rc={result.returncode}"
 
-    # Verify TDP limit has been set correctly by bh-mod
+    # Verify the overrides were applied by the running firmware.
     chip = pyluwen.detect_chips()[asic_id]
-    measured = chip.get_telemetry().tdp_limit_max
-    assert measured == target, f"expected tdp_limit_max={target}, got {measured}"
+    measured_tdp = chip.get_telemetry().tdp_limit_max
+    assert measured_tdp == tdp_target, (
+        f"expected tdp_limit_max={tdp_target}, got {measured_tdp}"
+    )
+    measured_kt = read_telem(chip, TAG_KERNEL_THROTTLER)
+    logger.info(f"kernel_throttler after set: 0x{measured_kt:08x}")
+    assert measured_kt == kt_expected, (
+        f"kernel throttler config not applied: expected 0x{kt_expected:08x}, "
+        f"got 0x{measured_kt:08x}"
+    )
 
-    # Re-flash the firmware bundle and confirm the override survives.
+    # Re-flash the firmware bundle and confirm the overrides survive.
     unlaunched_dut.launch()
     del chip  # force re-detection after the flash and reboot
     chip = wait_arc_boot(asic_id, timeout=60)
-    measured_after_flash = chip.get_telemetry().tdp_limit_max
-    assert measured_after_flash == target, (
+    measured_tdp_after_flash = chip.get_telemetry().tdp_limit_max
+    assert measured_tdp_after_flash == tdp_target, (
         f"ccfgovr did not survive tt-flash: "
-        f"expected tdp_limit_max={target}, got {measured_after_flash}"
+        f"expected tdp_limit_max={tdp_target}, got {measured_tdp_after_flash}"
+    )
+    measured_kt_after_flash = read_telem(chip, TAG_KERNEL_THROTTLER)
+    logger.info(f"kernel_throttler after re-flash: 0x{measured_kt_after_flash:08x}")
+    assert measured_kt_after_flash == kt_expected, (
+        f"ccfgovr did not survive tt-flash: expected 0x{kt_expected:08x}, "
+        f"got 0x{measured_kt_after_flash:08x}"
     )
 
-    # Revert TDP limit back to original
-    subprocess.run(
-        [bh_mod, "set", f"chip_limits.tdp_limit={baseline}"],
+    # Restore the baseline configuration. Warn (don't fail) if this does not
+    # succeed, since a stale SPI-flash state can flake later tests / CI runs.
+    restore = subprocess.run(
+        [
+            bh_mod,
+            "set",
+            f"chip_limits.tdp_limit={tdp_baseline}",
+            f"feature_enable.kernel_throttler_at_floor_en={'true' if kt_baseline & 1 else 'false'}",
+            f"chip_limits.kernel_throttler_stop_nops_freq={(kt_baseline >> 16) & 0xFFFF}",
+        ],
         capture_output=True,
         check=False,
     )
+    if restore.returncode != 0:
+        logger.warning(
+            f"Failed to restore baseline config (rc={restore.returncode}); "
+            f"SPI flash may be left modified: {restore.stderr.decode(errors='replace')}"
+        )
 
 
 def test_heartbeat_telemetry(arc_chip_dut, asic_id):
