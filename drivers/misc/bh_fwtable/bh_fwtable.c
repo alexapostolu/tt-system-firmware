@@ -378,6 +378,22 @@ void tt_bh_fwtable_apply_ccfgovr(const struct device *dev)
 			data->fw_table.chip_limits.tdp_limit = ovr.chip_limits.tdp_limit;
 		}
 
+		if (ovr.has_chip_limits && ovr.chip_limits.has_kernel_throttler_stop_nops_freq) {
+			LOG_INF("CCFGOVR override: chip_limits.kernel_throttler_stop_nops_freq = "
+				"%u",
+				ovr.chip_limits.kernel_throttler_stop_nops_freq);
+			data->fw_table.chip_limits.kernel_throttler_stop_nops_freq =
+				ovr.chip_limits.kernel_throttler_stop_nops_freq;
+		}
+
+		if (ovr.has_feature_enable && ovr.feature_enable.has_kernel_throttler_at_floor_en) {
+			LOG_INF("CCFGOVR override: feature_enable.kernel_throttler_at_floor_en = "
+				"%u",
+				ovr.feature_enable.kernel_throttler_at_floor_en);
+			data->fw_table.feature_enable.kernel_throttler_at_floor_en =
+				ovr.feature_enable.kernel_throttler_at_floor_en;
+		}
+
 		return;
 	}
 

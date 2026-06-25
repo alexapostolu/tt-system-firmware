@@ -369,12 +369,22 @@
  */
 #define TAG_GDDR_EAST_IO_POWER 74
 
+/**
+ * @brief Kernel-throttler-at-AICLK-floor configuration.
+ *
+ * Reflects the persisted firmware-table configuration (which may be overridden
+ * via the SPI-flash A/B ccfgovr mechanism):
+ * - bit 0: feature enabled (1) or disabled (0)
+ * - bits [31:16]: stop-NOPs frequency in MHz (0 = FW-controlled default)
+ */
+#define TAG_KERNEL_THROTTLER 75
+
 /** @} */ /* end of telemetry_tag group */
 
 /* Not a real tag, signifies the last tag in the list.
  * MUST be incremented if new tags are defined.
  */
-#define TAG_COUNT 75
+#define TAG_COUNT 76
 
 /* Telemetry tags are at offset `tag` in the telemetry buffer */
 #define TELEM_OFFSET(tag) (tag)
@@ -389,6 +399,7 @@ void UpdateTelemetryBoardPowerLimit(uint32_t power_limit);
 void UpdateTelemetryTdpLimit(uint32_t tdp_limit);
 void UpdateTelemetryThermTripCount(uint16_t therm_trip_count);
 void UpdateTelemetryHostAiclkLimit(uint32_t fmax);
+void UpdateTelemetryKernelThrottler(bool enabled, uint32_t stop_nops_freq);
 bool GetTelemetryTagValid(uint16_t tag);
 uint32_t GetTelemetryTag(uint16_t tag);
 

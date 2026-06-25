@@ -28,8 +28,15 @@ static bool doppler_t2;
 static bool doppler_t3;
 static const bool thermal_throttling = true;
 
+/*
+ * Kernel-throttler-at-AICLK-floor configuration. The defaults are sourced from
+ * the firmware table at init (feature_enable.kernel_throttler_at_floor_en and
+ * chip_limits.kernel_throttler_stop_nops_freq), so they can be persisted in SPI
+ * flash and overridden via bh-mod.
+ */
 static bool kernel_throttler_at_aiclk_floor_enabled;
 static uint32_t kernel_throttler_stop_nops_freq;
+static uint32_t kernel_throttler_stop_nops_freq_default;
 
 #define kThrottlerAiclkScaleFactor 500.0F
 #define DEFAULT_BOARD_POWER_LIMIT  150
@@ -217,6 +224,28 @@ void InitThrottlers(void)
 	doppler_t2 = doppler;
 	doppler_t3 = doppler;
 
+	kernel_throttler_at_aiclk_floor_enabled =
+		tt_bh_fwtable_get_fw_table(fwtable_dev)
+			->feature_enable.kernel_throttler_at_floor_en;
+	kernel_throttler_stop_nops_freq_default =
+		tt_bh_fwtable_get_fw_table(fwtable_dev)
+			->chip_limits.kernel_throttler_stop_nops_freq;
+	/* A non-zero stop frequency must be within the valid AICLK floor range.
+	 * An out-of-range value (e.g. from a board table or ccfgovr override)
+	 * could otherwise leave kernel NOPs permanently engaged, so treat it as
+	 * 0 (fall back to the effective minimum arbiter frequency at runtime).
+	 */
+	if (kernel_throttler_stop_nops_freq_default != 0U &&
+	    (kernel_throttler_stop_nops_freq_default < (uint32_t)AICLK_FMIN_MIN ||
+	     kernel_throttler_stop_nops_freq_default > (uint32_t)AICLK_FMIN_MAX)) {
+		LOG_WRN("Invalid fwtable kernel_throttler_stop_nops_freq=%u MHz; using 0 (auto)",
+			kernel_throttler_stop_nops_freq_default);
+		kernel_throttler_stop_nops_freq_default = 0U;
+	}
+	kernel_throttler_stop_nops_freq = kernel_throttler_stop_nops_freq_default;
+	UpdateTelemetryKernelThrottler(kernel_throttler_at_aiclk_floor_enabled,
+				       kernel_throttler_stop_nops_freq);
+
 	SetThrottlerLimit(kThrottlerTDP,
 			  tt_bh_fwtable_get_fw_table(fwtable_dev)->chip_limits.tdp_limit);
 	SetThrottlerLimit(kThrottlerFastTDC,
@@ -347,13 +376,14 @@ static void UpdateDoppler(const TelemetryInternalData *telemetry)
 	EnableArbMax(aiclk_arb_max_doppler_critical, critical_throttling);
 }
 
-/** @brief Update kernel throttler NOPs state based on power
- * @param[in] current_power Current vcore power in watts
- * @param[in] tdp_limit TDP throttler limit in watts
+/* Update kernel throttler NOPs state when running at the AICLK floor.
+ *
+ * Only active when feature_enable.kernel_throttler_at_floor_en is set. The stop
+ * frequency is taken from chip_limits.kernel_throttler_stop_nops_freq when
+ * non-zero, otherwise it falls back to the effective minimum arbiter frequency.
  */
 static void UpdateKernelThrottler(float current_power, float tdp_limit)
 {
-	/* Kernel throttler at aiclk floor is only active if enabled */
 	bool start_nops = false;
 	bool stop_nops = false;
 	enum aiclk_arb_min arb;
@@ -361,7 +391,6 @@ static void UpdateKernelThrottler(float current_power, float tdp_limit)
 	if (kernel_throttler_at_aiclk_floor_enabled) {
 		start_nops = GetAiclkTarg() == GetAiclkFmin() && current_power > tdp_limit;
 
-		/* Determine stop frequency: use configured value or fall back to effective min */
 		uint32_t stop_freq = kernel_throttler_stop_nops_freq;
 
 		if (stop_freq == 0U) {
@@ -422,15 +451,22 @@ uint8_t ThrottlerSetKernelThrottlerEnabled(uint32_t enabled)
 		SendKernelThrottlingMessage(false);
 	}
 
+	UpdateTelemetryKernelThrottler(kernel_throttler_at_aiclk_floor_enabled,
+				       kernel_throttler_stop_nops_freq);
 	return 0;
 }
 
 uint8_t ThrottlerSetKernelThrottlerStopFreq(uint32_t frequency)
 {
-	/* 0 means use default behavior (get_aiclk_effective_arb_min) */
+	/* 0 restores the fwtable-provided default (which may itself be 0, meaning
+	 * fall back to the effective minimum arbiter frequency at runtime).
+	 */
 	if (frequency == 0) {
-		kernel_throttler_stop_nops_freq = 0;
-		LOG_INF("kernel throttler stop nops frequency reset to default");
+		kernel_throttler_stop_nops_freq = kernel_throttler_stop_nops_freq_default;
+		LOG_INF("kernel throttler stop nops frequency restored to fwtable default %u MHz",
+			kernel_throttler_stop_nops_freq);
+		UpdateTelemetryKernelThrottler(kernel_throttler_at_aiclk_floor_enabled,
+					       kernel_throttler_stop_nops_freq);
 		return 0;
 	}
 
@@ -441,6 +477,8 @@ uint8_t ThrottlerSetKernelThrottlerStopFreq(uint32_t frequency)
 
 	kernel_throttler_stop_nops_freq = frequency;
 	LOG_INF("kernel throttler stop nops frequency set to %u MHz", frequency);
+	UpdateTelemetryKernelThrottler(kernel_throttler_at_aiclk_floor_enabled,
+				       kernel_throttler_stop_nops_freq);
 	return 0;
 }
 

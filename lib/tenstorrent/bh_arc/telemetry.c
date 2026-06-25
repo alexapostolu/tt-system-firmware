@@ -169,6 +169,7 @@ static struct telemetry_table telemetry_table = {
 		[67] = {TAG_GDDR_MRISC_NOC2AXI_PORT, TELEM_OFFSET(TAG_GDDR_MRISC_NOC2AXI_PORT)},
 		[68] = {TAG_GDDR_WEST_IO_POWER, TELEM_OFFSET(TAG_GDDR_WEST_IO_POWER)},
 		[69] = {TAG_GDDR_EAST_IO_POWER, TELEM_OFFSET(TAG_GDDR_EAST_IO_POWER)},
+		[70] = {TAG_KERNEL_THROTTLER, TELEM_OFFSET(TAG_KERNEL_THROTTLER)},
 	},
 };
 /* clang-format on */
@@ -241,6 +242,11 @@ void UpdateTelemetryThermTripCount(uint16_t therm_trip_count)
 void UpdateTelemetryHostAiclkLimit(uint32_t fmax)
 {
 	telemetry[TAG_HOST_AICLK_LIMIT] = fmax;
+}
+
+void UpdateTelemetryKernelThrottler(bool enabled, uint32_t stop_nops_freq)
+{
+	telemetry[TAG_KERNEL_THROTTLER] = (enabled ? 1U : 0U) | ((stop_nops_freq & 0xFFFFU) << 16U);
 }
 
 bool GetTelemetryTagValid(uint16_t tag)
