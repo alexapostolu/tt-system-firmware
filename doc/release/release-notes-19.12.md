@@ -17,9 +17,11 @@ Major enhancements with this release include:
 - Read GDDR temperatures more frequently as part of internal telemetry
 - Add Blackhole Kernel throttler when we reach AICLK floor (disabled by default)
 - Add throttler controls via ARC message to enable/disable kernel throttling at AICLK floor and tune the stop-NOPs frequency threshold (kernel throttling at floor is now disabled by default).
+- Get the kernel throttler defaults (enable and stop-NOPs frequency) from the firmware table so they persist across reboots and firmware upgrades, and can be overridden via `bh-mod`. The ARC message continues to override these defaults at runtime.
 
 ### Telemetry
 - Carve out a region of memory for Metal runtime telemetry and publish its address and size via `SCRATCH_RAM[22:23]`.
+- Add `TAG_KERNEL_THROTTLER` telemetry reporting the active kernel-throttler-at-AICLK-floor configuration (enable bit and stop-NOPs frequency).
 
 ### GDDR
 - Change NOC endpoint used to load GDDR0 MRISC from 0 to 2 (NOC node 0-11)
