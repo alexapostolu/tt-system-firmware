@@ -339,16 +339,6 @@ Documentation:
   tests:
     - drivers.regulator
 
-"Drivers: Reset":
-  # Maintainer needed!
-  status: odd fixes
-  files:
-    - drivers/reset/
-    - dts/bindings/reset/
-    # - include/zephyr/dt-bindings/reset/
-  tests:
-    - drivers.reset
-
 "Drivers: Sensors":
   # Maintainer needed!
   status: odd fixes
