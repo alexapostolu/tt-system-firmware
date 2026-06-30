@@ -16,12 +16,12 @@
 #define bh_arc_init_start_PRIO                93
 #define CATEarlyInit_PRIO                     94
 #define CalculateHarvesting_PRIO              95
-#define DeassertTileResets_PRIO               96
+#define deassert_tile_resets_PRIO             96
 #define PLLInit_PRIO                          97
 #define PVTInit_PRIO                          98
 #define NocInit_PRIO                          99
-#define AssertSoftResets_PRIO                 100
-#define DeassertRiscvResets_PRIO              101
+#define assert_soft_resets_PRIO               100
+#define deassert_riscv_resets_PRIO            101
 #define InitAiclkPPM_PRIO                     102
 #define pcie_init_PRIO                        103
 #define tensix_init_PRIO                      104

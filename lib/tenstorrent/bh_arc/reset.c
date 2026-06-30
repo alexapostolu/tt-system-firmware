@@ -14,7 +14,6 @@
 #include "noc.h"
 #include "noc_init.h"
 #include "noc2axi.h"
-#include "reg.h"
 #include "status_reg.h"
 #include "tensix.h"
 #include "tensix_init.h"
@@ -32,6 +31,7 @@
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/sys_io.h>
 #include <zephyr/sys/util.h>
 #include <zephyr/toolchain.h>
 #include <zephyr/device.h>
@@ -56,7 +56,7 @@ void record_init_failure(enum init_stage_id stage)
 
 	error_status0 |= BIT(stage);
 
-	WriteReg(STATUS_ERROR_STATUS0_REG_ADDR, error_status0);
+	sys_write32(error_status0, STATUS_ERROR_STATUS0_REG_ADDR);
 }
 
 /* Cable fault mode: true when DMC reports 0W power limit (no cable or improper installation).
@@ -85,7 +85,7 @@ void bh_soft_reset_all_tensix(void)
 
 /* Assert soft reset for all RISC-V cores */
 /* L2CPU is skipped due to JIRA issues BH-25 and BH-28 */
-static int AssertSoftResets(void)
+static int assert_soft_resets(void)
 {
 	SetPostCode(POST_CODE_SRC_CMFW, POST_CODE_ARC_INIT_STEP6);
 	if (IS_ENABLED(CONFIG_TT_SMC_RECOVERY) || !IS_ENABLED(CONFIG_ARC)) {
@@ -131,11 +131,11 @@ static int AssertSoftResets(void)
 
 	return 0;
 }
-SYS_INIT_APP(AssertSoftResets);
+SYS_INIT_APP(assert_soft_resets);
 
 /* Deassert RISC reset from reset_unit for all RISC-V cores */
 /* L2CPU is skipped due to JIRA issues BH-25 and BH-28 */
-static int DeassertRiscvResets(void)
+static int deassert_riscv_resets(void)
 {
 	SetPostCode(POST_CODE_SRC_CMFW, POST_CODE_ARC_INIT_STEP7);
 
@@ -156,20 +156,20 @@ static int DeassertRiscvResets(void)
 	/* Deassert RISC reset from reset_unit */
 
 	for (uint32_t i = 0; i < 8; i++) {
-		WriteReg(RESET_UNIT_TENSIX_RISC_RESET_0_REG_ADDR + i * 4, 0xffffffff);
+		sys_write32(0xffffffff, RESET_UNIT_TENSIX_RISC_RESET_0_REG_ADDR + i * 4);
 	}
 
 	RESET_UNIT_ETH_RESET_reg_u eth_reset;
 
-	eth_reset.val = ReadReg(RESET_UNIT_ETH_RESET_REG_ADDR);
+	eth_reset.val = sys_read32(RESET_UNIT_ETH_RESET_REG_ADDR);
 	eth_reset.f.eth_risc_reset_n = 0x3fff;
-	WriteReg(RESET_UNIT_ETH_RESET_REG_ADDR, eth_reset.val);
+	sys_write32(eth_reset.val, RESET_UNIT_ETH_RESET_REG_ADDR);
 
 	RESET_UNIT_DDR_RESET_reg_u ddr_reset;
 
-	ddr_reset.val = ReadReg(RESET_UNIT_DDR_RESET_REG_ADDR);
+	ddr_reset.val = sys_read32(RESET_UNIT_DDR_RESET_REG_ADDR);
 	ddr_reset.f.ddr_risc_reset_n = 0xffffff;
-	WriteReg(RESET_UNIT_DDR_RESET_REG_ADDR, ddr_reset.val);
+	sys_write32(ddr_reset.val, RESET_UNIT_DDR_RESET_REG_ADDR);
 
 	ARRAY_FOR_EACH(pll_devs, i) {
 		clock_control_set_rate(pll_devs[i],
@@ -179,36 +179,36 @@ static int DeassertRiscvResets(void)
 
 	return 0;
 }
-SYS_INIT_APP(DeassertRiscvResets);
+SYS_INIT_APP(deassert_riscv_resets);
 
 /**
  * @brief Handler for @ref TT_SMC_MSG_TOGGLE_TENSIX_RESET
  * @see toggle_tensix_reset_rqst
  */
-static __maybe_unused uint8_t ToggleTensixReset(const union request *req, struct response *rsp)
+static __maybe_unused uint8_t toggle_tensix_reset(const union request *req, struct response *rsp)
 {
 	/* Assert reset (active low) */
 	RESET_UNIT_TENSIX_RESET_reg_u tensix_reset = {.val = 0};
 
 	for (uint32_t i = 0; i < 8; i++) {
-		WriteReg(RESET_UNIT_TENSIX_RESET_0_REG_ADDR + i * 4, tensix_reset.val);
+		sys_write32(tensix_reset.val, RESET_UNIT_TENSIX_RESET_0_REG_ADDR + i * 4);
 	}
 
 	/* Deassert reset */
 	tensix_reset.val = 0xffffffff;
 	for (uint32_t i = 0; i < 8; i++) {
-		WriteReg(RESET_UNIT_TENSIX_RESET_0_REG_ADDR + i * 4, tensix_reset.val);
+		sys_write32(tensix_reset.val, RESET_UNIT_TENSIX_RESET_0_REG_ADDR + i * 4);
 	}
 
 	return 0;
 }
 
 #ifndef CONFIG_TT_SMC_RECOVERY
-REGISTER_MESSAGE(TT_SMC_MSG_TOGGLE_TENSIX_RESET, ToggleTensixReset);
+REGISTER_MESSAGE(TT_SMC_MSG_TOGGLE_TENSIX_RESET, toggle_tensix_reset);
 #endif
 
-static __maybe_unused uint8_t ToggleSingleTensixReset(const union request *req,
-						      struct response *rsp)
+static __maybe_unused uint8_t toggle_single_tensix_reset(const union request *req,
+							 struct response *rsp)
 {
 	uint8_t noc_x = req->toggle_single_tensix_reset.noc_x;
 	uint8_t noc_y = req->toggle_single_tensix_reset.noc_y;
@@ -289,7 +289,7 @@ static __maybe_unused uint8_t ToggleSingleTensixReset(const union request *req,
 }
 
 #ifndef CONFIG_TT_SMC_RECOVERY
-REGISTER_MESSAGE(TT_SMC_MSG_TOGGLE_SINGLE_TENSIX_RESET, ToggleSingleTensixReset);
+REGISTER_MESSAGE(TT_SMC_MSG_TOGGLE_SINGLE_TENSIX_RESET, toggle_single_tensix_reset);
 #endif
 
 /**
@@ -299,7 +299,7 @@ REGISTER_MESSAGE(TT_SMC_MSG_TOGGLE_SINGLE_TENSIX_RESET, ToggleSingleTensixReset)
  * Redo Tensix init that gets cleared on Tensix reset.
  * This includes all NOC programming and any programming within the tile.
  */
-static __maybe_unused uint8_t ReinitTensix(const union request *req, struct response *rsp)
+static __maybe_unused uint8_t reinit_tensix(const union request *req, struct response *rsp)
 {
 	ClearNocTranslation();
 	/* We technically don't have to re-program the entire NOC (only the Tensix NOC portions),
@@ -314,10 +314,10 @@ static __maybe_unused uint8_t ReinitTensix(const union request *req, struct resp
 	return 0;
 }
 #ifndef CONFIG_TT_SMC_RECOVERY
-REGISTER_MESSAGE(TT_SMC_MSG_REINIT_TENSIX, ReinitTensix);
+REGISTER_MESSAGE(TT_SMC_MSG_REINIT_TENSIX, reinit_tensix);
 #endif
 
-static int DeassertTileResets(void)
+static int deassert_tile_resets(void)
 {
 	SetPostCode(POST_CODE_SRC_CMFW, POST_CODE_ARC_INIT_STEP3);
 
@@ -329,7 +329,7 @@ static int DeassertTileResets(void)
 	 * - If magic marker present: new DMC, check power limit (0 = cable fault)
 	 * - If magic marker absent: legacy DMC, skip cable fault detection
 	 */
-	uint32_t raw_value = ReadReg(DMC_CABLE_POWER_LIMIT_REG_ADDR);
+	uint32_t raw_value = sys_read32(DMC_CABLE_POWER_LIMIT_REG_ADDR);
 
 	if (bh_chip_info_is_ubb()) {
 		/* Galaxy boards have no DMC; CPLD never sets cable power limit */
@@ -365,31 +365,31 @@ static int DeassertTileResets(void)
 	global_reset.f.system_reset_n = 1;
 	global_reset.f.pcie_reset_n = 3;
 	global_reset.f.ptp_reset_n_refclk = 1;
-	WriteReg(RESET_UNIT_GLOBAL_RESET_REG_ADDR, global_reset.val);
+	sys_write32(global_reset.val, RESET_UNIT_GLOBAL_RESET_REG_ADDR);
 
 	RESET_UNIT_ETH_RESET_reg_u eth_reset = {.val = RESET_UNIT_ETH_RESET_REG_DEFAULT};
 
 	eth_reset.f.eth_reset_n = 0x3fff;
-	WriteReg(RESET_UNIT_ETH_RESET_REG_ADDR, eth_reset.val);
+	sys_write32(eth_reset.val, RESET_UNIT_ETH_RESET_REG_ADDR);
 
 	RESET_UNIT_TENSIX_RESET_reg_u tensix_reset = {.val = RESET_UNIT_TENSIX_RESET_REG_DEFAULT};
 
 	tensix_reset.f.tensix_reset_n = 0xffffffff;
 	/* There are 8 instances of these tensix reset registers */
 	for (uint32_t i = 0; i < 8; i++) {
-		WriteReg(RESET_UNIT_TENSIX_RESET_0_REG_ADDR + i * 4, tensix_reset.val);
+		sys_write32(tensix_reset.val, RESET_UNIT_TENSIX_RESET_0_REG_ADDR + i * 4);
 	}
 
 	RESET_UNIT_DDR_RESET_reg_u ddr_reset = {.val = RESET_UNIT_DDR_RESET_REG_DEFAULT};
 
 	ddr_reset.f.ddr_reset_n = 0xff;
-	WriteReg(RESET_UNIT_DDR_RESET_REG_ADDR, ddr_reset.val);
+	sys_write32(ddr_reset.val, RESET_UNIT_DDR_RESET_REG_ADDR);
 
 	RESET_UNIT_L2CPU_RESET_reg_u l2cpu_reset = {.val = RESET_UNIT_L2CPU_RESET_REG_DEFAULT};
 
 	l2cpu_reset.f.l2cpu_reset_n = 0xf;
-	WriteReg(RESET_UNIT_L2CPU_RESET_REG_ADDR, l2cpu_reset.val);
+	sys_write32(l2cpu_reset.val, RESET_UNIT_L2CPU_RESET_REG_ADDR);
 
 	return 0;
 }
-SYS_INIT_APP(DeassertTileResets);
+SYS_INIT_APP(deassert_tile_resets);
