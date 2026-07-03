@@ -13,6 +13,7 @@ import pytest
 
 from e2e_smoke import (
     dirty_reset_test,
+    smi_reset_command,
     smi_reset_test,
     smi_reset_with_eth,
     arc_watchdog_test,
@@ -74,9 +75,9 @@ def tt_smi_reset():
     """
     Resets the SMC using tt-smi
     """
-    smi_reset_cmd = "tt-smi -r --eth_train_skip"
+    smi_reset_cmd = smi_reset_command("--eth_train_skip")
     smi_reset_result = subprocess.run(
-        smi_reset_cmd.split(), capture_output=True, check=False
+        smi_reset_cmd, capture_output=True, check=False
     ).returncode
     return smi_reset_result
 

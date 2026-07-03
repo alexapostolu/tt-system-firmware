@@ -77,6 +77,12 @@ def _skip_boards(board_name) -> bool:
     return board_name in ("loudbox", "quietbox2") or "galaxy" in board_name.lower()
 
 
+def smi_reset_command(*extra_args: str) -> list[str]:
+    if "galaxy" in os.getenv("BOARD", "").lower():
+        return ["tt-smi", "-glx_reset"]
+    return ["tt-smi", "-r", *extra_args]
+
+
 REFCLK_HZ = 50_000_000
 
 # Constant memory addresses we can read from SMC
@@ -831,10 +837,8 @@ def smi_reset_test(asic_id):
     """
     Helper to run tt-smi reset test. Returns True if test passed, False otherwise
     """
-    smi_reset_cmd = "tt-smi -r --eth_train_skip"
-    smi_reset_result = subprocess.run(
-        smi_reset_cmd.split(), capture_output=True, check=False
-    )
+    smi_reset_cmd = smi_reset_command("--eth_train_skip")
+    smi_reset_result = subprocess.run(smi_reset_cmd, capture_output=True, check=False)
     if smi_reset_result.returncode != 0:
         logger.warning(f"'tt-smi -r' failed: {smi_reset_result.stdout.decode()}")
         smc_test_recovery.recover_smc(asic_id)
@@ -846,10 +850,8 @@ def smi_reset_with_eth(asic_id):
     """
     Helper to run tt-smi reset test with ethernet training. Returns True if test passed, False otherwise
     """
-    smi_reset_cmd = "tt-smi -r"
-    smi_reset_result = subprocess.run(
-        smi_reset_cmd.split(), capture_output=True, check=False
-    )
+    smi_reset_cmd = smi_reset_command()
+    smi_reset_result = subprocess.run(smi_reset_cmd, capture_output=True, check=False)
     if smi_reset_result.returncode != 0:
         logger.warning(
             f"'tt-smi -r' with ethernet training failed: {smi_reset_result.stdout.decode()}"

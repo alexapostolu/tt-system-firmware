@@ -74,7 +74,11 @@ if [[ "$TEST_SET" == *"e2e-stress"* ]]; then
 	# Run the DMC tests
 	echo "Running e2e stress tests..."
     # Reset the card first. If this fails tt-flash won't work either
-    tt-smi -r
+    if [[ "$BOARD" == *"galaxy"* ]]; then
+        tt-smi -glx_reset
+    else
+        tt-smi -r
+    fi
     # Run a full stress test, using tt-flash as the runner
     "$ZEPHYR_BASE/scripts/twister" -i -p "$SMC_BOARD" \
         --tag e2e-stress -T "$TT_Z_P_ROOT/app" \
