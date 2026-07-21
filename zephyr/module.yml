@@ -241,3 +241,183 @@ blobs:
           raw/refs/heads/main/zephyr/blobs/grendel-sival-sources.tar.gz"
     description: "Grendel Sival sources"
     doc-url: https://tenstorrent.com
+  - path: tt_blackhole_mcuboot_P100A.bin
+    sha256: 3ba6707a89597de402cc6faed8d4a2925df7a384ca67cd63964fa82b02153ff4
+    type: img
+    version: '19.12.0'
+    license-path: zephyr/blobs/license.txt
+    url: "https://github.com/tenstorrent/tt-system-firmware/\
+          raw/refs/heads/main/zephyr/blobs/tt_blackhole_mcuboot_P100A.bin"
+    description: "SMC MCUBoot bootloader (signed, from v19.12.0 release)"
+    doc-url: https://tenstorrent.com
+  - path: tt_blackhole_mcuboot_P150A.bin
+    sha256: 3ba6707a89597de402cc6faed8d4a2925df7a384ca67cd63964fa82b02153ff4
+    type: img
+    version: '19.12.0'
+    license-path: zephyr/blobs/license.txt
+    url: "https://github.com/tenstorrent/tt-system-firmware/\
+          raw/refs/heads/main/zephyr/blobs/tt_blackhole_mcuboot_P150A.bin"
+    description: "SMC MCUBoot bootloader (signed, from v19.12.0 release)"
+    doc-url: https://tenstorrent.com
+  - path: tt_blackhole_mcuboot_P150B.bin
+    sha256: 3ba6707a89597de402cc6faed8d4a2925df7a384ca67cd63964fa82b02153ff4
+    type: img
+    version: '19.12.0'
+    license-path: zephyr/blobs/license.txt
+    url: "https://github.com/tenstorrent/tt-system-firmware/\
+          raw/refs/heads/main/zephyr/blobs/tt_blackhole_mcuboot_P150B.bin"
+    description: "SMC MCUBoot bootloader (signed, from v19.12.0 release)"
+    doc-url: https://tenstorrent.com
+  - path: tt_blackhole_mcuboot_P150C.bin
+    sha256: 3ba6707a89597de402cc6faed8d4a2925df7a384ca67cd63964fa82b02153ff4
+    type: img
+    version: '19.12.0'
+    license-path: zephyr/blobs/license.txt
+    url: "https://github.com/tenstorrent/tt-system-firmware/\
+          raw/refs/heads/main/zephyr/blobs/tt_blackhole_mcuboot_P150C.bin"
+    description: "SMC MCUBoot bootloader (signed, from v19.12.0 release)"
+    doc-url: https://tenstorrent.com
+  - path: tt_blackhole_mcuboot_P300A.bin
+    sha256: 3ba6707a89597de402cc6faed8d4a2925df7a384ca67cd63964fa82b02153ff4
+    type: img
+    version: '19.12.0'
+    license-path: zephyr/blobs/license.txt
+    url: "https://github.com/tenstorrent/tt-system-firmware/\
+          raw/refs/heads/main/zephyr/blobs/tt_blackhole_mcuboot_P300A.bin"
+    description: "SMC MCUBoot bootloader (signed, from v19.12.0 release)"
+    doc-url: https://tenstorrent.com
+  - path: tt_blackhole_mcuboot_P300B.bin
+    sha256: 3ba6707a89597de402cc6faed8d4a2925df7a384ca67cd63964fa82b02153ff4
+    type: img
+    version: '19.12.0'
+    license-path: zephyr/blobs/license.txt
+    url: "https://github.com/tenstorrent/tt-system-firmware/\
+          raw/refs/heads/main/zephyr/blobs/tt_blackhole_mcuboot_P300B.bin"
+    description: "SMC MCUBoot bootloader (signed, from v19.12.0 release)"
+    doc-url: https://tenstorrent.com
+  - path: tt_blackhole_mcuboot_P300C.bin
+    sha256: 3ba6707a89597de402cc6faed8d4a2925df7a384ca67cd63964fa82b02153ff4
+    type: img
+    version: '19.12.0'
+    license-path: zephyr/blobs/license.txt
+    url: "https://github.com/tenstorrent/tt-system-firmware/\
+          raw/refs/heads/main/zephyr/blobs/tt_blackhole_mcuboot_P300C.bin"
+    description: "SMC MCUBoot bootloader (signed, from v19.12.0 release)"
+    doc-url: https://tenstorrent.com
+  - path: tt_blackhole_mcuboot_GALAXY.bin
+    sha256: 34a564a9dc891a38d2b4632091d2de7245e9306187720ad8447d82d4e343e88a
+    type: img
+    version: '19.12.0'
+    license-path: zephyr/blobs/license.txt
+    url: "https://github.com/tenstorrent/tt-system-firmware/\
+          raw/refs/heads/main/zephyr/blobs/tt_blackhole_mcuboot_GALAXY.bin"
+    description: "SMC MCUBoot bootloader (signed, from v19.12.0 release)"
+    doc-url: https://tenstorrent.com
+  - path: tt_blackhole_mcuboot_GALAXY_REVC.bin
+    sha256: 34a564a9dc891a38d2b4632091d2de7245e9306187720ad8447d82d4e343e88a
+    type: img
+    version: '19.12.0'
+    license-path: zephyr/blobs/license.txt
+    url: "https://github.com/tenstorrent/tt-system-firmware/\
+          raw/refs/heads/main/zephyr/blobs/tt_blackhole_mcuboot_GALAXY_REVC.bin"
+    description: "SMC MCUBoot bootloader (signed, from v19.12.0 release)"
+    doc-url: https://tenstorrent.com
+  - path: tt_blackhole_mcuboot_ORION_SLT.bin
+    sha256: 3ba6707a89597de402cc6faed8d4a2925df7a384ca67cd63964fa82b02153ff4
+    type: img
+    version: '19.12.0'
+    license-path: zephyr/blobs/license.txt
+    url: "https://github.com/tenstorrent/tt-system-firmware/\
+          raw/refs/heads/main/zephyr/blobs/tt_blackhole_mcuboot_ORION_SLT.bin"
+    description: "SMC MCUBoot bootloader (signed, from v19.12.0 release)"
+    doc-url: https://tenstorrent.com
+  - path: tt_blackhole_recovery_P100A.bin
+    sha256: 494796c76a22110e71045d8422a8b132be935762e087da1236754a2b30cb9049
+    type: img
+    version: '19.12.0'
+    license-path: zephyr/blobs/license.txt
+    url: "https://github.com/tenstorrent/tt-system-firmware/\
+          raw/refs/heads/main/zephyr/blobs/tt_blackhole_recovery_P100A.bin"
+    description: "SMC recovery firmware (signed, from v19.12.0 release)"
+    doc-url: https://tenstorrent.com
+  - path: tt_blackhole_recovery_P150A.bin
+    sha256: c328d764977106c496bfc8a429c46e0bc4030d0158795d1137897c95783d8de0
+    type: img
+    version: '19.12.0'
+    license-path: zephyr/blobs/license.txt
+    url: "https://github.com/tenstorrent/tt-system-firmware/\
+          raw/refs/heads/main/zephyr/blobs/tt_blackhole_recovery_P150A.bin"
+    description: "SMC recovery firmware (signed, from v19.12.0 release)"
+    doc-url: https://tenstorrent.com
+  - path: tt_blackhole_recovery_P150B.bin
+    sha256: b4705cd6a9c55b36f1534cc7329ffc67f28e3095d16dc4d428130660eca5ad7f
+    type: img
+    version: '19.12.0'
+    license-path: zephyr/blobs/license.txt
+    url: "https://github.com/tenstorrent/tt-system-firmware/\
+          raw/refs/heads/main/zephyr/blobs/tt_blackhole_recovery_P150B.bin"
+    description: "SMC recovery firmware (signed, from v19.12.0 release)"
+    doc-url: https://tenstorrent.com
+  - path: tt_blackhole_recovery_P150C.bin
+    sha256: bc188b44516528ad69cd6075e5ef6f00a1083acab814c28cfc4e5ee730de7dc3
+    type: img
+    version: '19.12.0'
+    license-path: zephyr/blobs/license.txt
+    url: "https://github.com/tenstorrent/tt-system-firmware/\
+          raw/refs/heads/main/zephyr/blobs/tt_blackhole_recovery_P150C.bin"
+    description: "SMC recovery firmware (signed, from v19.12.0 release)"
+    doc-url: https://tenstorrent.com
+  - path: tt_blackhole_recovery_P300A.bin
+    sha256: 0ef2202eacb1899fdd3b0c06729c8fbab342c9a0372b7d525b646a747dfaaeb7
+    type: img
+    version: '19.12.0'
+    license-path: zephyr/blobs/license.txt
+    url: "https://github.com/tenstorrent/tt-system-firmware/\
+          raw/refs/heads/main/zephyr/blobs/tt_blackhole_recovery_P300A.bin"
+    description: "SMC recovery firmware (signed, from v19.12.0 release)"
+    doc-url: https://tenstorrent.com
+  - path: tt_blackhole_recovery_P300B.bin
+    sha256: ec0dea139a0dd99aaf236deb28f51ae859d43719aea8f8c228fd9d065c31a7c5
+    type: img
+    version: '19.12.0'
+    license-path: zephyr/blobs/license.txt
+    url: "https://github.com/tenstorrent/tt-system-firmware/\
+          raw/refs/heads/main/zephyr/blobs/tt_blackhole_recovery_P300B.bin"
+    description: "SMC recovery firmware (signed, from v19.12.0 release)"
+    doc-url: https://tenstorrent.com
+  - path: tt_blackhole_recovery_P300C.bin
+    sha256: 57fbbd49cc225157ef620083424f7cebd3d73a5bb743650567253e62611b8e12
+    type: img
+    version: '19.12.0'
+    license-path: zephyr/blobs/license.txt
+    url: "https://github.com/tenstorrent/tt-system-firmware/\
+          raw/refs/heads/main/zephyr/blobs/tt_blackhole_recovery_P300C.bin"
+    description: "SMC recovery firmware (signed, from v19.12.0 release)"
+    doc-url: https://tenstorrent.com
+  - path: tt_blackhole_recovery_GALAXY.bin
+    sha256: a0d4fac5dab938e6e5a79b926d85ac5e892a88fbfe35a226a319dcac04b1a727
+    type: img
+    version: '19.12.0'
+    license-path: zephyr/blobs/license.txt
+    url: "https://github.com/tenstorrent/tt-system-firmware/\
+          raw/refs/heads/main/zephyr/blobs/tt_blackhole_recovery_GALAXY.bin"
+    description: "SMC recovery firmware (signed, from v19.12.0 release)"
+    doc-url: https://tenstorrent.com
+  - path: tt_blackhole_recovery_GALAXY_REVC.bin
+    sha256: 22b2825b1e27885d53afb67812504c4ad7b1d3450d204a09fb6e5479e7785fca
+    type: img
+    version: '19.12.0'
+    license-path: zephyr/blobs/license.txt
+    url: "https://github.com/tenstorrent/tt-system-firmware/\
+          raw/refs/heads/main/zephyr/blobs/tt_blackhole_recovery_GALAXY_REVC.bin"
+    description: "SMC recovery firmware (signed, from v19.12.0 release)"
+    doc-url: https://tenstorrent.com
+  - path: tt_blackhole_recovery_ORION_SLT.bin
+    sha256: dd213e2caca228c4c61f84556c61f127c8c3145e308c2932f3273b07957d8c97
+    type: img
+    version: '19.12.0'
+    license-path: zephyr/blobs/license.txt
+    url: "https://github.com/tenstorrent/tt-system-firmware/\
+          raw/refs/heads/main/zephyr/blobs/tt_blackhole_recovery_ORION_SLT.bin"
+    description: "SMC recovery firmware (signed, from v19.12.0 release)"
+    doc-url: https://tenstorrent.com

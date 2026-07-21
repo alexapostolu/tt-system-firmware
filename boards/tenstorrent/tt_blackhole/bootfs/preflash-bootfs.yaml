@@ -10,13 +10,13 @@ alignment:
 images:
 
   - name: cmfw
-    binary: $BUILD_DIR/mcuboot/zephyr/zephyr.bin
+    binary: $ROOT/zephyr/blobs/tt_blackhole_mcuboot_P300A.bin
     executable: true
     offset: 0x10000000
 
   # Recovery image, loaded by mcuboot
   - name: recovery
-    binary: $BUILD_DIR/recovery/zephyr/zephyr.signed.bin
+    binary: $ROOT/zephyr/blobs/tt_blackhole_recovery_P300A.bin
     source: '212992'
 
   # Trailer for recovery image indicating it can be booted
@@ -26,5 +26,5 @@ images:
 
 fail_over_image:
   name: failover
-  binary: $BUILD_DIR/mcuboot/zephyr/zephyr.bin
+  binary: $ROOT/zephyr/blobs/tt_blackhole_mcuboot_P300A.bin
   offset: 0x10000000
