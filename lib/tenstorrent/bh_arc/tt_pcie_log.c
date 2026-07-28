@@ -329,6 +329,12 @@ static void backend_process(const struct log_backend *const backend, union log_m
 	uint32_t entry_start_pos;
 	uint32_t message_start_pos;
 
+	/* Do not forward LOG_RAW or printk output to the host. */
+	if (log_msg_get_level(&msg->log) == LOG_LEVEL_NONE &&
+	    log_msg_get_source(&msg->log) == NULL) {
+		return;
+	}
+
 	/* Lock mutex to prevent collision with flush timer */
 	if (k_mutex_lock(&buffer_mutex, K_MSEC(10)) != 0) {
 		/* Timeout - drop this data */
