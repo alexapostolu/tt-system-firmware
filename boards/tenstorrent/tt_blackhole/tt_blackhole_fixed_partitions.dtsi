@@ -44,7 +44,7 @@ partitions {
 	cmfw: partition@14000 {
 		label = "cmfw";
 		reg = <0x14000 DT_SIZE_K(128)>;
-		binary-path = "$BLOBS_DIR/tt_blackhole_mcuboot_$PROD_NAME.bin";
+		binary-path = "$BUILD_DIR/mcuboot/zephyr/zephyr.bin";
 		offset = <0x10000000>;
 		executable;
 	};
@@ -57,7 +57,7 @@ partitions {
 	smc_recovery: partition@34000 {
 		label = "safeimg";
 		reg = <0x34000 DT_SIZE_K(512)>;
-		binary-path = "$BLOBS_DIR/tt_blackhole_recovery_$PROD_NAME.bin";
+		binary-path = "$BUILD_DIR/recovery/zephyr/zephyr.signed.bin";
 	};
 
 	/*
@@ -78,7 +78,7 @@ partitions {
 	boot_fallback: partition@b4000 {
 		label = "failover";
 		reg = <0xb4000 DT_SIZE_K(128)>;
-		binary-path = "$BLOBS_DIR/tt_blackhole_mcuboot_$PROD_NAME.bin";
+		binary-path = "$BUILD_DIR/mcuboot/zephyr/zephyr.bin";
 		offset = <0x10000000>;
 		executable;
 	};
