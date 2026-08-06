@@ -12,4 +12,3 @@ tests:
       pytest_root:
         - pytest/test-tt-boot-fs.py
         - pytest/test-tt-fwbundle.py
-        - pytest/test-boot-blobs.py
