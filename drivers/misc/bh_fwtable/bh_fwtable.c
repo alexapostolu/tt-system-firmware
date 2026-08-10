@@ -229,6 +229,123 @@ struct ccfgovr_bank_info {
 	bool header_valid;
 };
 
+/*
+ * Wire-format allow-list mirroring fw_table_override.proto. Keep in lockstep
+ * with the `optional` declarations there and with the merge branches inside
+ * tt_bh_fwtable_apply_ccfgovr() below. Anything not listed here is treated as
+ * `reserved` / unknown and logged (LOG_WRN) when observed on the wire; nanopb
+ * would otherwise drop it silently.
+ */
+struct ccfgovr_msg_desc;
+
+struct ccfgovr_field_desc {
+	uint32_t tag;
+	const struct ccfgovr_msg_desc *submsg; /* non-NULL for length-delimited sub-messages */
+};
+
+struct ccfgovr_msg_desc {
+	const char *name;
+	const struct ccfgovr_field_desc *fields;
+	size_t n_fields;
+};
+
+static const struct ccfgovr_field_desc ccfgovr_chip_limits_fields[] = {
+	{.tag = 5},  /* tdp_limit */
+	{.tag = 17}, /* kernel_throttler_stop_nops_freq */
+};
+static const struct ccfgovr_msg_desc ccfgovr_chip_limits_msg = {
+	.name = "chip_limits",
+	.fields = ccfgovr_chip_limits_fields,
+	.n_fields = ARRAY_SIZE(ccfgovr_chip_limits_fields),
+};
+
+static const struct ccfgovr_field_desc ccfgovr_feature_enable_fields[] = {
+	{.tag = 10}, /* kernel_throttler_at_floor_en */
+};
+static const struct ccfgovr_msg_desc ccfgovr_feature_enable_msg = {
+	.name = "feature_enable",
+	.fields = ccfgovr_feature_enable_fields,
+	.n_fields = ARRAY_SIZE(ccfgovr_feature_enable_fields),
+};
+
+static const struct ccfgovr_field_desc ccfgovr_root_fields[] = {
+	{.tag = 2, .submsg = &ccfgovr_chip_limits_msg},
+	{.tag = 3, .submsg = &ccfgovr_feature_enable_msg},
+};
+static const struct ccfgovr_msg_desc ccfgovr_root_msg = {
+	.name = "FwTableOverride",
+	.fields = ccfgovr_root_fields,
+	.n_fields = ARRAY_SIZE(ccfgovr_root_fields),
+};
+
+static const struct ccfgovr_field_desc *
+ccfgovr_lookup(const struct ccfgovr_msg_desc *msg, uint32_t tag)
+{
+	for (size_t i = 0; i < msg->n_fields; i++) {
+		if (msg->fields[i].tag == tag) {
+			return &msg->fields[i];
+		}
+	}
+	return NULL;
+}
+
+/*
+ * Walks the wire-format bytes of `msg` and emits one LOG_WRN per disallowed
+ * field number found (at any nesting depth reachable via known sub-messages).
+ * Does not modify decode semantics: nanopb continues to skip unknown fields
+ * silently in the follow-up pb_decode_ex(); this pass only surfaces them.
+ *
+ * Malformed streams are not reported here — the subsequent pb_decode_ex()
+ * will emit its own "protobuf decode failed" warning.
+ */
+static void ccfgovr_warn_unknown_fields(pb_istream_t *stream,
+					const struct ccfgovr_msg_desc *msg, const char *bank_tag)
+{
+	while (stream->bytes_left > 0) {
+		pb_wire_type_t wire_type;
+		uint32_t tag;
+		bool eof = false;
+
+		if (!pb_decode_tag(stream, &wire_type, &tag, &eof)) {
+			return;
+		}
+
+		/* PB_DECODE_NULLTERMINATED terminator, or trailing 4-byte pad. */
+		if (tag == 0) {
+			return;
+		}
+
+		const struct ccfgovr_field_desc *fd = ccfgovr_lookup(msg, tag);
+
+		if (fd == NULL) {
+			LOG_WRN("ccfgovr bank '%s': ignoring reserved field #%u in %s "
+				"(wire_type=%u)",
+				bank_tag, tag, msg->name, (unsigned int)wire_type);
+			if (!pb_skip_field(stream, wire_type)) {
+				return;
+			}
+			continue;
+		}
+
+		if (fd->submsg != NULL && wire_type == PB_WT_STRING) {
+			pb_istream_t sub;
+
+			if (!pb_make_string_substream(stream, &sub)) {
+				return;
+			}
+			ccfgovr_warn_unknown_fields(&sub, fd->submsg, bank_tag);
+			if (!pb_close_string_substream(stream, &sub)) {
+				return;
+			}
+			continue;
+		}
+
+		if (!pb_skip_field(stream, wire_type)) {
+			return;
+		}
+	}
+}
+
 static bool ccfgovr_header_is_plausible(const struct ccfgovr_bank_hdr *hdr)
 {
 	return hdr->magic == CCFGOVR_MAGIC && hdr->seq != CCFGOVR_SEQ_ERASED &&
@@ -354,9 +471,17 @@ void tt_bh_fwtable_apply_ccfgovr(const struct device *dev)
 		}
 
 		/*
-		 * Tags that are `reserved` in fw_table_override.proto are unknown
-		 * to FwTableOverride_fields and get silently skipped.
+		 * Log any reserved / unknown fields on the wire before decoding.
+		 * nanopb would otherwise drop them silently, leaving no trace of
+		 * a mis-set override.
 		 */
+		{
+			pb_istream_t scan =
+				pb_istream_from_buffer(body, order[i]->hdr.body_len);
+
+			ccfgovr_warn_unknown_fields(&scan, &ccfgovr_root_msg, order[i]->tag);
+		}
+
 		FwTableOverride ovr = FwTableOverride_init_zero;
 		pb_istream_t stream = pb_istream_from_buffer(body, order[i]->hdr.body_len);
 

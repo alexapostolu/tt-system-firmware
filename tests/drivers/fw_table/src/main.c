@@ -311,6 +311,59 @@ ZTEST(bh_fwtable_ccfgovr, test_active_invalid_falls_back_to_inactive)
 }
 
 /**
+ * @brief A payload with a reserved top-level field must still apply the
+ *        allow-listed fields (and, in the firmware, log one LOG_WRN).
+ *
+ * Wire bytes (proto3):
+ *   08 B4 24              -> field #1 (reserved at FwTableOverride level),
+ *                            varint value = 0x1234
+ *   12 03 28 C8 01        -> field #2 (chip_limits, len=3):
+ *                              28 C8 01  -> tdp_limit=200
+ *   00                    -> PB_DECODE_NULLTERMINATED terminator
+ *   00 00 00              -> 4-byte alignment padding
+ */
+ZTEST(bh_fwtable_ccfgovr, test_reserved_top_level_field_is_tolerated)
+{
+	static const uint8_t body[] = {
+		0x08, 0xB4, 0x24, 0x12, 0x03, 0x28, 0xC8, 0x01, 0x00, 0x00, 0x00, 0x00,
+	};
+	struct ccfgovr_bank_hdr hdr = {.magic = CCFGOVR_MAGIC, .seq = 7};
+
+	write_bank(BANK_A_ADDR, &hdr, body, sizeof(body));
+
+	tt_bh_fwtable_apply_ccfgovr(fwtable_dev);
+	zassert_equal(tt_bh_fwtable_get_fw_table(fwtable_dev)->chip_limits.tdp_limit, 200U,
+		      "allow-listed tdp_limit must still apply when a reserved top-level "
+		      "field is present");
+}
+
+/**
+ * @brief A payload with a reserved field _inside_ chip_limits must still apply
+ *        the allow-listed inner field (and, in the firmware, log one LOG_WRN).
+ *
+ * Wire bytes:
+ *   12 05                 -> field #2 (chip_limits, len=5)
+ *      20 2A              -> chip_limits field #4 (reserved), varint value=42
+ *      28 C8 01           -> chip_limits field #5 (tdp_limit), value=200
+ *   00                    -> terminator (payload already 4-byte aligned)
+ */
+ZTEST(bh_fwtable_ccfgovr, test_reserved_nested_field_is_tolerated)
+{
+	static const uint8_t body[] = {
+		0x12, 0x05, 0x20, 0x2A, 0x28, 0xC8, 0x01, 0x00,
+	};
+	struct ccfgovr_bank_hdr hdr = {.magic = CCFGOVR_MAGIC, .seq = 7};
+
+	BUILD_ASSERT(sizeof(body) % 4U == 0U, "ccfgovr body must be 4-byte aligned");
+	write_bank(BANK_A_ADDR, &hdr, body, sizeof(body));
+
+	tt_bh_fwtable_apply_ccfgovr(fwtable_dev);
+	zassert_equal(tt_bh_fwtable_get_fw_table(fwtable_dev)->chip_limits.tdp_limit, 200U,
+		      "allow-listed chip_limits.tdp_limit must still apply when a reserved "
+		      "inner field is present");
+}
+
+/**
  * @brief Test bad path when both tables are invalid
  */
 ZTEST(bh_fwtable_ccfgovr, test_both_banks_invalid_no_override)
