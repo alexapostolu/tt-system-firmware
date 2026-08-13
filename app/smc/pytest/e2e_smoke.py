@@ -1976,6 +1976,81 @@ def test_ccfgovr_bh_mod(unlaunched_dut: DeviceAdapter, asic_id: int):
         )
 
 
+def test_ccfgovr_eth_speed_override(arc_chip_dut, asic_id, board_name):
+    """
+    Exercise the ETH link speed override that ccfgovr merges into
+    FwTable.eth_property_table.eth_speed_override.
+
+    There is no telemetry tag for the trained ETH speed, so instead of
+    reading it back this test drives the paths that would fail if the
+    override were mis-handled:
+
+    - `bh-mod` rejects a speed the ERISC firmware does not implement
+      before touching flash. This is the immediate-feedback story: the
+      user learns their value is wrong without waiting for a reset.
+    - Writing a supported speed and letting `bh-mod` reset the chip leaves
+      ARC coming back up. The reset is the end-to-end path through the
+      `FwTableOverride` encode, the SPI write, the ccfgovr merge into
+      `FwTable` (which sets `has_eth_speed_override`), and `LoadEthFwCfg`
+      consuming the field.
+    - `bh-mod res` clears the override.
+    """
+    bh_mod = shutil.which("bh-mod") or os.path.expanduser("~/bh-mod")
+    if not os.path.isfile(bh_mod):
+        pytest.skip("bh-mod not found (PATH or ~/bh-mod)")
+
+    ETH_SPEED_PATH = "eth_property_table.eth_speed_override"
+
+    # Re-assert the cmfwcfg speed. Every non-Galaxy board trains at 400G
+    # and Galaxy at 200G today, so this exercises the merge without asking
+    # the ETH FW to retrain at a different speed.
+    is_galaxy = board_name is not None and "galaxy" in board_name.lower()
+    speed = 200 if is_galaxy else 400
+
+    # A speed no ERISC firmware implements has to be refused before bh-mod
+    # touches the chip, so this leaves state alone.
+    reject = subprocess.run(
+        [bh_mod, "set", f"{ETH_SPEED_PATH}=137"],
+        capture_output=True,
+        check=False,
+    )
+    assert reject.returncode != 0, (
+        f"bh-mod set {ETH_SPEED_PATH}=137 should have been rejected; "
+        f"stdout={reject.stdout.decode(errors='replace')!r} "
+        f"stderr={reject.stderr.decode(errors='replace')!r}"
+    )
+
+    write = subprocess.run(
+        [bh_mod, "--reset-timeout=60s", "set", f"{ETH_SPEED_PATH}={speed}"],
+        capture_output=True,
+        check=False,
+    )
+    assert write.returncode == 0, (
+        f"bh-mod set {ETH_SPEED_PATH}={speed} failed, rc={write.returncode}; "
+        f"stdout={write.stdout.decode(errors='replace')!r} "
+        f"stderr={write.stderr.decode(errors='replace')!r}"
+    )
+    # ARC has to be back after bh-mod applied the override with a reset.
+    wait_arc_boot(asic_id, timeout=60)
+
+    # Clear the override so the SPI flash goes back to inheriting from cmfwcfg.
+    # Warn (don't fail) if this doesn't succeed, so a stale flash state can't
+    # flake later tests / CI runs.
+    restore = subprocess.run(
+        [bh_mod, "--reset-timeout=60s", "res", ETH_SPEED_PATH],
+        capture_output=True,
+        check=False,
+    )
+    if restore.returncode != 0:
+        logger.warning(
+            f"Failed to clear {ETH_SPEED_PATH} (rc={restore.returncode}); "
+            f"SPI flash may be left modified: "
+            f"{restore.stderr.decode(errors='replace')}"
+        )
+    else:
+        wait_arc_boot(asic_id, timeout=60)
+
+
 def test_heartbeat_telemetry(arc_chip_dut, asic_id):
     """
     Polls the heartbeat telemetry every 100ms and verifies that it's incrementing.
