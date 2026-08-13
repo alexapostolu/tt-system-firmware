@@ -59,7 +59,7 @@ static void write_fd(size_t slot, const char *tag, uint32_t spi_addr, uint32_t i
 
 	int rc = flash_write(flash_dev, TT_BOOT_FS_FD_HEAD_ADDR + slot * sizeof(fd), &fd,
 			     sizeof(fd));
-	zassert_equal(rc, 0, "flash_write failed with %d", slot, rc);
+	zassert_equal(rc, 0, "flash_write of fd slot %zu failed with %d", slot, rc);
 }
 
 static size_t encode_tdp_limit_override(uint8_t *out, size_t out_size, uint32_t value)
