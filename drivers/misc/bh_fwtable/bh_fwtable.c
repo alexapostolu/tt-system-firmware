@@ -409,6 +409,15 @@ void tt_bh_fwtable_apply_ccfgovr(const struct device *dev)
 				ovr.feature_enable.gddr_therm_trip_en;
 		}
 
+		if (ovr.has_eth_property_table && ovr.eth_property_table.has_eth_speed_override) {
+			LOG_INF("CCFGOVR override: eth_property_table.eth_speed_override = %u",
+				ovr.eth_property_table.eth_speed_override);
+			data->fw_table.eth_property_table.eth_speed_override =
+				ovr.eth_property_table.eth_speed_override;
+			data->fw_table.eth_property_table.has_eth_speed_override = true;
+			data->fw_table.has_eth_property_table = true;
+		}
+
 		return;
 	}
 
