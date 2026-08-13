@@ -27,6 +27,9 @@ Major enhancements with this release include:
 
 - Removed alternative SerDes firmware support from the SMC. The `altsdfw` and `altsdreg` flash partitions and their blobs have been dropped, as the required link speeds are now part of the default SerDes firmware image.
 
+### Persistent SPI Flash Parameters
+- Expose `eth_property_table.eth_speed_override` to `bh-mod`, valid speeds - `{0, 40, 100, 200, 330, 350, 370, 400}`. `0` is interpreted as a request to auto-train.
+
 ## Migration guide
 
 An overview of required and recommended changes to make when migrating from the previous v19.13.0 release can be found in [19.14 Migration Guide](https://github.com/tenstorrent/tt-system-firmware/tree/main/doc/release/migration-guide-19.14.md).
