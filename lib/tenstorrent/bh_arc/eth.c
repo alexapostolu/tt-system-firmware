@@ -329,15 +329,41 @@ int LoadEthFwCfg(uint32_t eth_inst, uint32_t ring, uint8_t *buf, uint32_t eth_en
 	/* Pass in eth_sel based on harvesting info and PCIe configuration */
 	fw_cfg_32b[0] = GetEthSel(eth_enabled);
 
-	/* Check if speed overrides exist, */
-	/* apply them if they are a valid speed setting (40G, 100G, 200G, 330G, 350G, 370G, 400G) */
-	uint32_t speed_override =
-		tt_bh_fwtable_get_fw_table(fwtable_dev)->eth_property_table.eth_speed_override;
+	/*
+	 * ETH link speed override, end-to-end
+	 * -----------------------------------
+	 *   +---------------------------------+-------------+------------------------+
+	 *   | how the fw table got here       | has_ / val  | fw_cfg_32b[1]          |
+	 *   +---------------------------------+-------------+------------------------+
+	 *   | non-Galaxy board, no override   | false / 0   | image default (400G)   |
+	 *   | Galaxy board, no override       | true  / 200 | 200G                   |
+	 *   | bh-mod set 0    (auto-train)    | true  / 0   | 0 -> ERISC auto-trains |
+	 *   | bh-mod set N    (N in allow)    | true  / N   | N                      |
+	 *   | bh-mod set N    (N not in allow)| (rejected by bh-mod, never reaches   |
+	 *   |                                 |  flash; user sees an error)          |
+	 *   | bh-mod res eth_speed_override   | reverts to the cmfwcfg row above     |
+	 *   | hand-edited cmfwcfg, unsupp. N  | true  / N   | image default + LOG_WRN|
+	 *   |   (defense-in-depth path)       |             |                        |
+	 *   +---------------------------------+-------------+------------------------+
+	 *
+	 * The has_ bit is what tells "explicit 0 for auto" from "table names no
+	 * speed, use the image default". Without it a merged 0 would look like a
+	 * table that names none, and bh-mod could not ask for auto-train.
+	 */
+	const FwTable *fw_table = tt_bh_fwtable_get_fw_table(fwtable_dev);
 
-	if (speed_override == 40 || speed_override == 100 || speed_override == 200 ||
-	    speed_override == 330 || speed_override == 350 || speed_override == 370 ||
-	    speed_override == 400) {
-		fw_cfg_32b[1] = speed_override;
+	if (fw_table->eth_property_table.has_eth_speed_override) {
+		uint32_t speed_override = fw_table->eth_property_table.eth_speed_override;
+
+		if (speed_override == 0 || speed_override == 40 || speed_override == 100 ||
+		    speed_override == 200 || speed_override == 330 || speed_override == 350 ||
+		    speed_override == 370 || speed_override == 400) {
+			fw_cfg_32b[1] = speed_override;
+		} else {
+			LOG_WRN("eth_speed_override %uG is not a speed the ETH FW implements; "
+				"leaving the ETH FW config image speed in place",
+				speed_override);
+		}
 	}
 
 	/* Pass in some board/chip specific data for ETH to use */
