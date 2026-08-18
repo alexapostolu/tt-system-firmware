@@ -36,6 +36,7 @@ jobs:
     outputs:
       matrix-config: ${{ steps.gen.outputs.matrix-config }}
       mfg-matrix-config: ${{ steps.gen.outputs.mfg-matrix-config }}
+      p150a-kmd: ${{ steps.gen.outputs.p150a-kmd }}
     steps:
       - uses: actions/checkout@v4
       - id: gen
@@ -44,6 +45,7 @@ jobs:
           # Manufacturing test only runs on the standalone PCIe cards (p100a, p150a, p300a)
           MFG_MATRIX_CONFIG="$(jq -c '[.bh[] | select(.board == "p100a" or .board == "p150a" or .board == "p300a")]' .github/ci_boards.json)"
           echo "mfg-matrix-config=$MFG_MATRIX_CONFIG" | tee -a $GITHUB_OUTPUT
+          echo "p150a-kmd=$(jq -r '.bh[] | select(.board == "p150a") | .kmd_build' .github/ci_boards.json)" | tee -a $GITHUB_OUTPUT
 
   e2e-stress-test:
     name: BH E2E Stress Test on ${{ matrix.config.board }}
@@ -57,7 +59,9 @@ jobs:
       image: ghcr.io/tenstorrent/tt-system-firmware/ci-image:v19.11.0
       volumes:
         - /dev/hugepages-1G:/dev/hugepages-1G
-        - /opt/tenstorrent/kmd-builds/:/opt/tenstorrent/kmd-builds/
+        # Host kernel build tree, required to compile tt-kmd in-container.
+        - /lib/modules:/lib/modules:ro
+        - /usr/src:/usr/src:ro
       options: '--device /dev/tenstorrent --device /dev/bus/usb --device /dev/ipmi0 --privileged'
     steps:
       - name: Cleanup State
@@ -130,7 +134,9 @@ jobs:
       image: ghcr.io/tenstorrent/tt-system-firmware/ci-image:v19.11.0
       volumes:
         - /dev/hugepages-1G:/dev/hugepages-1G
-        - /opt/tenstorrent/kmd-builds/:/opt/tenstorrent/kmd-builds/
+        # Host kernel build tree, required to compile tt-kmd in-container.
+        - /lib/modules:/lib/modules:ro
+        - /usr/src:/usr/src:ro
       options: '--device /dev/tenstorrent --device /dev/bus/usb --privileged'
     steps:
       - name: Cleanup State
@@ -150,7 +156,7 @@ jobs:
         uses: ./tt-system-firmware/.github/workflows/prepare-container
         with:
           app-path: tt-system-firmware
-          kmd-version: 2.7.0
+          kmd-version: ${{ needs.gen-config.outputs.p150a-kmd }}
 
       - name: Install the package from PyPI
         run: |
@@ -188,7 +194,9 @@ jobs:
       image: ghcr.io/tenstorrent/tt-system-firmware/ci-image:v19.11.0
       volumes:
         - /dev/hugepages-1G:/dev/hugepages-1G
-        - /opt/tenstorrent/kmd-builds/:/opt/tenstorrent/kmd-builds/
+        # Host kernel build tree, required to compile tt-kmd in-container.
+        - /lib/modules:/lib/modules:ro
+        - /usr/src:/usr/src:ro
       options: '--device /dev/tenstorrent --device /dev/bus/usb --privileged'
     steps:
       - name: Cleanup State
