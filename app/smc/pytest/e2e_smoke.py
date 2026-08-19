@@ -1973,9 +1973,7 @@ def test_ccfgovr_eth_speed_override(arc_chip_dut, asic_id, board_name):
       consuming the field.
     - `bh-mod res` clears the override.
     """
-    bh_mod = shutil.which("bh-mod") or os.path.expanduser("~/bh-mod")
-    if not os.path.isfile(bh_mod):
-        pytest.skip("bh-mod not found (PATH or ~/bh-mod)")
+    bh_mod = _require_bh_mod()
 
     ETH_SPEED_PATH = "eth_property_table.eth_speed_override"
 
@@ -1986,7 +1984,8 @@ def test_ccfgovr_eth_speed_override(arc_chip_dut, asic_id, board_name):
     speed = 200 if is_galaxy else 400
 
     # A speed no ERISC firmware implements has to be refused before bh-mod
-    # touches the chip, so this leaves state alone.
+    # touches the chip, so this leaves state alone. Do not retry: a luwen
+    # panic must not be counted as a successful rejection.
     reject = subprocess.run(
         [bh_mod, "set", f"{ETH_SPEED_PATH}=137"],
         capture_output=True,
@@ -1998,11 +1997,7 @@ def test_ccfgovr_eth_speed_override(arc_chip_dut, asic_id, board_name):
         f"stderr={reject.stderr.decode(errors='replace')!r}"
     )
 
-    write = subprocess.run(
-        [bh_mod, "--reset-timeout=60s", "set", f"{ETH_SPEED_PATH}={speed}"],
-        capture_output=True,
-        check=False,
-    )
+    write = _bh_mod_set(bh_mod, f"{ETH_SPEED_PATH}={speed}")
     assert write.returncode == 0, (
         f"bh-mod set {ETH_SPEED_PATH}={speed} failed, rc={write.returncode}; "
         f"stdout={write.stdout.decode(errors='replace')!r} "
@@ -2014,11 +2009,7 @@ def test_ccfgovr_eth_speed_override(arc_chip_dut, asic_id, board_name):
     # Clear the override so the SPI flash goes back to inheriting from cmfwcfg.
     # Warn (don't fail) if this doesn't succeed, so a stale flash state can't
     # flake later tests / CI runs.
-    restore = subprocess.run(
-        [bh_mod, "--reset-timeout=60s", "res", ETH_SPEED_PATH],
-        capture_output=True,
-        check=False,
-    )
+    restore = _bh_mod_res(bh_mod, ETH_SPEED_PATH)
     if restore.returncode != 0:
         logger.warning(
             f"Failed to clear {ETH_SPEED_PATH} (rc={restore.returncode}); "
@@ -2077,6 +2068,13 @@ def _require_bh_mod() -> str:
 
 
 def _run_bh_mod(args, *, retries=3, backoff=2.0):
+    """
+    Run a bh-mod command, retrying on transient luwen ARC-message panics.
+
+    Right after chip init (especially dual-ASIC p300a) the SMC can still be
+    settling, and bh-mod's internal ARC-message "pop" has a tight 500 ms
+    timeout; when it expires bh-mod unwrap()s and exits 101.
+    """
     result = subprocess.run(args, capture_output=True, check=False)
     for attempt in range(1, retries):
         if result.returncode != 101:
@@ -2094,11 +2092,11 @@ def _run_bh_mod(args, *, retries=3, backoff=2.0):
 
 
 def _bh_mod_set(bh_mod, *settings):
-    return _run_bh_mod([bh_mod, "set", *settings])
+    return _run_bh_mod([bh_mod, "--reset-timeout=60s", "set", *settings])
 
 
 def _bh_mod_res(bh_mod, *confs):
-    return _run_bh_mod([bh_mod, "res", *confs])
+    return _run_bh_mod([bh_mod, "--reset-timeout=60s", "res", *confs])
 
 
 def _read_tdp_limit(asic_id):
