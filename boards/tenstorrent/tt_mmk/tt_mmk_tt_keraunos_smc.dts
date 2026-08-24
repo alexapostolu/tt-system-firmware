@@ -52,6 +52,14 @@
 };
 
 &{/soc} {
+	pcie0: pcie@18000000 {
+		compatible = "tenstorrent,grendel-pcie";
+		reg = <0x0 0x18000000 0x0 0x1000000>;
+		/* QEMU 64 GiB; silicon aperture comes later. */
+		bar4-size = <0x10 0x0>;
+		status = "okay";
+	};
+
 	/* Cold Scratch 3 */
 	msgqueue_info: scratch-reg@c000280c {
 		compatible = "tenstorrent,scratch-reg";
