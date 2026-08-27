@@ -122,6 +122,31 @@ if [ -n "$KERNEL_CC" ]; then
 	echo "Building with CC=${KERNEL_CC} ($("$KERNEL_CC" --version | head -n1))"
 	MAKE_ARGS+=("CC=$KERNEL_CC")
 fi
+
+# The host kernel build tree is bind-mounted into the CI container. 24.04
+# kernel ships a prebuilt objtool linked against GLIBC 2.38+, which
+# cannot run in a 22.04 container (GLIBC 2.35). Skip objtool in that
+# case; it is only used for stack validation and is not required to produce a
+# loadable module. SKIP_STACK_VALIDATION was removed from kbuild, so use the
+# documented OBJECT_FILES_NON_STANDARD switch instead.
+OBJTOOL_BIN="/lib/modules/${KVER}/build/tools/objtool/objtool"
+objtool_can_run() {
+	local err
+	[ -x "$1" ] || return 1
+	# Loader failures (missing libs / GLIBC_* not found) go to stderr.
+	# A working objtool prints usage on stdout and leaves stderr empty.
+	err="$(LC_ALL=C "$1" 2>&1 >/dev/null || true)"
+	case "$err" in
+	*"not found"*|*"cannot open shared object"*) return 1 ;;
+	esac
+	return 0
+}
+if ! objtool_can_run "$OBJTOOL_BIN"; then
+	echo "Kernel objtool cannot run in this environment (likely a glibc" \
+		"mismatch with bind-mounted host headers); skipping stack validation"
+	MAKE_ARGS+=("OBJECT_FILES_NON_STANDARD=y")
+fi
+
 make -C "$BUILD_DIR/tt-kmd" "${MAKE_ARGS[@]+"${MAKE_ARGS[@]}"}"
 
 # Check /sys/module, not `lsmod | grep -q` (SIGPIPE + pipefail skips rmmod).
