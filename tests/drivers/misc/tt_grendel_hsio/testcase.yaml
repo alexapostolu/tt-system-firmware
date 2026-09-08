@@ -4,4 +4,6 @@ common:
   tags:
     - drivers
 tests:
-  drivers.misc.tt_grendel_hsio: {}
+  drivers.misc.tt_grendel_hsio:
+    # Private SiVal SDK tarball is not in CI. Revert when it is a west blob.
+    skip: true
