@@ -8,6 +8,7 @@
 
 #include <zephyr/dt-bindings/gpio/gpio.h>
 #include <tenstorrent/tt_grendel_smc.dtsi>
+#include <tenstorrent/tt_keraunos_d2d.dtsi>
 
 / {
 	vuarts {
