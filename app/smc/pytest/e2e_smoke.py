@@ -825,6 +825,7 @@ def arc_watchdog_test(asic_id):
     arc_chip.axi_write32(ARC_HANG_PC_REG_ADDR, 0)
     # Halt the ARC cores.
     arc_chip.axi_write32(ARC_MISC_CTRL, 0xF0)
+    del arc_chip
     # Make sure we can still detect ARC core after 500 ms
     time.sleep(0.5)
     try:
@@ -847,15 +848,15 @@ def arc_watchdog_test(asic_id):
     try:
         arc_chip = pyluwen.detect_chips()[asic_id]
         hang_pc = arc_chip.axi_read32(ARC_HANG_PC_REG_ADDR)
+        del arc_chip
         # If the ARC chip was reset, the hang program counter should have been set
         if hang_pc == 0:
             logger.warning(
                 "ARC did not reset, waiting 10 additional seconds to see if ARC core resets"
             )
-            del arc_chip
             time.sleep(10)
             rescan_pcie()
-            arc_chip = pyluwen.detect_chips()[asic_id]
+            arc_chip = wait_arc_boot(asic_id)
             hang_pc = arc_chip.axi_read32(ARC_HANG_PC_REG_ADDR)
             del arc_chip
             if hang_pc == 0:
@@ -873,7 +874,7 @@ def arc_watchdog_test(asic_id):
     time.sleep(1.0)
     # Rescan PCIe, and see if ARC chip has been reset
     rescan_pcie()
-    arc_chip = pyluwen.detect_chips()[asic_id]
+    arc_chip = wait_arc_boot(asic_id)
     hang_pc = arc_chip.axi_read32(ARC_HANG_PC_REG_ADDR)
     if hang_pc == 0:
         logger.error("ARC core was not reset, but PCIe device re-enumerated?")
@@ -2093,8 +2094,8 @@ def test_ccfgovr_bh_mod(unlaunched_dut: DeviceAdapter, asic_id: int):
     )
     assert result.returncode == 0, f"bh-mod set failed, rc={result.returncode}"
 
+    chip = wait_arc_boot(asic_id)
     # Verify the overrides were applied by the running firmware.
-    chip = pyluwen.detect_chips()[asic_id]
     measured_tdp = chip.get_telemetry().tdp_limit_max
     assert measured_tdp == tdp_target, (
         f"expected tdp_limit_max={tdp_target}, got {measured_tdp}"
