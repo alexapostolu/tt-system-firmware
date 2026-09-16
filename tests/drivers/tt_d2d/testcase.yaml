@@ -7,3 +7,29 @@ tests:
     platform_allow:
       - tt_mimir/tt_mimir/smc
       - tt_mmk/tt_mimir/smc
+  # twister passes these as DTC_OVERLAY_FILE, which replaces the implicit
+  # app.overlay, so it has to be listed here for the tiles to be enabled.
+  drivers.tt_d2d.train:
+    build_only: true
+    extra_configs:
+      - CONFIG_TT_D2D_TEST_TRAIN=y
+    extra_dtc_overlay_files:
+      - app.overlay
+      - train.overlay
+    platform_allow:
+      - tt_mmk/tt_mimir/smc
+  # Sysbuild: Mimir image plus Keraunos image from one command.
+  drivers.tt_d2d.train_mmk:
+    build_only: true
+    sysbuild: true
+    platform_allow:
+      - tt_mmk/tt_mimir/smc
+  # Standalone Keraunos rebuild without sysbuild.
+  drivers.tt_d2d.train_keraunos:
+    build_only: true
+    extra_configs:
+      - CONFIG_TT_D2D_TEST_TRAIN=y
+    extra_dtc_overlay_files:
+      - keraunos_train.overlay
+    platform_allow:
+      - tt_mmk/tt_keraunos/smc

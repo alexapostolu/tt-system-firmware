@@ -1,0 +1,26 @@
+/*
+ * Copyright (c) 2026 Tenstorrent AI ULC
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * MMK Keraunos end: only D2D2 faces Mimir1. The other tiles sit in unclocked
+ * HSIO; leaving them disabled keeps the suite from hanging on those buses.
+ * app.overlay enables d2d0/d2d1 for the Mimir loader suite.
+ */
+
+&d2d0 {
+	status = "disabled";
+};
+
+&d2d1 {
+	status = "disabled";
+};
+
+/* Same bypasses as train.overlay. No DMA: CPU stores over HSIO. */
+&d2d2 {
+	status = "okay";
+	bypass-phy;
+	disable-sideband;
+};

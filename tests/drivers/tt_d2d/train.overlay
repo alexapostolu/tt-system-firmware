@@ -1,0 +1,21 @@
+/*
+ * Copyright (c) 2026 Tenstorrent AI ULC
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * Same overlay for both Mimirs. Tile choice is runtime from scratch[15], not
+ * per-die DTS. Both tiles get PHY/sideband bypass; app.overlay leaves d2d1
+ * unbypassed for the loader suite, which would fail training on emu.
+ */
+
+&d2d1 {
+	bypass-phy;
+	disable-sideband;
+};
+
+/* Match the drop: PHY and sideband bypassed on emu, regulator left real. */
+&d2d0 {
+	/delete-property/ bypass-vreg;
+};

@@ -1,0 +1,17 @@
+# Copyright (c) 2026 Tenstorrent AI ULC
+# SPDX-License-Identifier: Apache-2.0
+
+source "Kconfig.zephyr"
+
+config TT_D2D_TEST_TRAIN
+	bool "Build the two-die link training suite instead of the loader suite"
+	help
+	  Separate image: the loader suite leaves the tile started, which is
+	  not where training begins, and only one suite can run on a die.
+
+config TT_D2D_TEST_TRAIN_KERAUNOS
+	bool "Train the Mimir1-to-Keraunos link as well"
+	depends on TT_D2D_TEST_TRAIN
+	help
+	  MMK Mimir image: Mimir1 also loads d2d1 (faces Keraunos d2d2).
+	  Unused on the Keraunos image.
