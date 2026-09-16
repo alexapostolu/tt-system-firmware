@@ -14,6 +14,7 @@
 LOG_MODULE_REGISTER(tt_d2d, CONFIG_TT_D2D_LOG_LEVEL);
 
 #include <d2d_api_driver.h>
+#include <d2d_api_fw_progress_codes.h>
 #include <d2d_api_general_definitions.h>
 #include <platform.h>
 
@@ -32,7 +33,8 @@ BUILD_ASSERT(CONFIG_TT_D2D_INIT_PRIO > CONFIG_DMA_INIT_PRIORITY,
 #endif
 
 /*
- * Offsets within a D2D tile's register map.
+ * Offsets within a D2D tile's register map. The D2D_0_ / D2D_1_ names are the
+ * Mimir ones; Keraunos is aliased onto them in tt_grendel_shim.h.
  */
 #define TT_D2D_OFFSET(addr) ((addr) - D2D_0_REG_MAP_BASE_ADDR)
 
@@ -70,6 +72,15 @@ BUILD_ASSERT(D2D_MEMORY_BASE == TT_D2D_SRAM_OFFSET,
 
 /* Anything at or past the configuration block would be overwritten by it. */
 #define TT_D2D_IMAGE_MAX TT_D2D_CFG_OFFSET
+
+#define TT_D2D_PROGRESS_CODE_OFFSET ((uint32_t)(DMEM_PROGRESS_CODE_REG - D2D_MEMORY_BASE))
+
+#define TT_D2D_SRAM_USED_END (TT_D2D_PROGRESS_CODE_OFFSET + sizeof(uint32_t))
+
+BUILD_ASSERT(TT_D2D_SRAM_USED_END > TT_D2D_CFG_END,
+	     "the progress code is assumed to be the highest SRAM word the driver touches");
+
+#define TT_D2D_LINK_POLL_INTERVAL_US 100U
 
 /*
  * Loopback-2 stays disabled, but its parameters are still filled in to match
@@ -153,7 +164,7 @@ int tt_d2d_reset_release(const struct device *dev)
 {
 	const struct tt_d2d_config *config = dev->config;
 	uintptr_t strap = config->base + TT_D2D_STRAP_RESET_OFFSET;
-	TT_MIMIR_D2D_STRAP_RESET_reg_u reset = {.val = 0};
+	TT_D2D_STRAP_RESET_reg_u reset = {.val = 0};
 
 	/*
 	 * One reset per write, in the order the hardware requires, so each is
@@ -300,6 +311,12 @@ static void tt_d2d_write_config(const struct device *dev)
 	tt_d2d_cfg_write(config, DISABLE_SIDEBAND, config->disable_sideband ? 1U : 0U);
 
 	/*
+	 * LL_TRAINING_COMPLETE is transient; with the diag loop on, the firmware
+	 * parks at DIAG_CMD_WAITING_FOR_COMMAND, which tt_d2d_wait_link() can poll.
+	 */
+	tt_d2d_cfg_write(config, DIAG_COMMAND_LOOP_ENABLE, 1U);
+
+	/*
 	 * Magic last, and in its own register rather than the parameter table:
 	 * it is what tells the firmware the rest of the block is populated, so
 	 * writing it first would expose a half-filled config.
@@ -402,6 +419,41 @@ int tt_d2d_start(const struct device *dev)
 	return 0;
 }
 
+uint32_t tt_d2d_progress_code(const struct device *dev)
+{
+	const struct tt_d2d_config *config = dev->config;
+
+	/* The firmware reports its stage in the low half of the word only. */
+	return sys_read32(tt_d2d_sram(config) + TT_D2D_PROGRESS_CODE_OFFSET) & 0xFFFFU;
+}
+
+int tt_d2d_wait_link(const struct device *dev, k_timeout_t timeout)
+{
+	k_timepoint_t deadline = sys_timepoint_calc(timeout);
+	uint32_t code;
+
+	do {
+		code = tt_d2d_progress_code(dev);
+
+		if (code == LL_TRAINING_COMPLETE || code == DIAG_CMD_WAITING_FOR_COMMAND) {
+			LOG_DBG("%s: link trained", dev->name);
+			return 0;
+		}
+
+		if (code >= PLL_FAILED_TO_LOCK && code <= INTERSLICE_DESKEW_ERROR) {
+			LOG_ERR("%s: firmware gave up training, progress code 0x%04x", dev->name,
+				code);
+			return -EIO;
+		}
+
+		k_busy_wait(TT_D2D_LINK_POLL_INTERVAL_US);
+	} while (!sys_timepoint_expired(deadline));
+
+	LOG_ERR("%s: link did not train, firmware progress code 0x%04x", dev->name, code);
+
+	return -ETIMEDOUT;
+}
+
 static int tt_d2d_init(const struct device *dev)
 {
 	const struct tt_d2d_config *config = dev->config;
@@ -411,10 +463,10 @@ static int tt_d2d_init(const struct device *dev)
 	 * the CCE clock switch, which this driver knows nothing about, so it is
 	 * left to the caller.
 	 */
-	if (config->sram_size < TT_D2D_CFG_END) {
-		LOG_ERR("%s: sram-size 0x%x is too small to hold the config block, which ends at "
-			"0x%x",
-			dev->name, config->sram_size, TT_D2D_CFG_END);
+	if (config->sram_size < TT_D2D_SRAM_USED_END) {
+		LOG_ERR("%s: sram-size 0x%x is too small for the config block and progress code, "
+			"which reach 0x%x",
+			dev->name, config->sram_size, (uint32_t)TT_D2D_SRAM_USED_END);
 		return -EINVAL;
 	}
 

@@ -11,45 +11,22 @@
  * @file
  * @brief Tenstorrent Grendel die-to-die (D2D) firmware loading APIs
  *
- * Bringing a D2D link up takes three steps, kept separate because each has to
- * be sequenced against work this driver does not own:
+ * Sequence: reset_release (before the CCE PLL switch, straps sample the
+ * current clock) -> load_fw (Rocket stays halted) -> start (both ends close
+ * together; sideband sync is off on emu) -> wait_link.
  *
- *   1. tt_d2d_reset_release() - deassert the tile's subsystem resets. Must
- *      happen before the CCE clock switches to the PLL, because the D2D logic
- *      samples its straps at the clock rate in effect at the time.
- *   2. tt_d2d_load_fw()       - put firmware in the Rocket's SRAM and fill in
- *      its configuration block. Leaves the Rocket in reset.
- *   3. tt_d2d_start()         - release the Rocket so the firmware runs.
- *
- * Step 3 is deliberately not folded into step 2. Both ends of a link must be
- * started close together, and with sideband synchronisation disabled (as it is
- * under emulation) there is nothing in hardware to make that happen: starting
- * each Rocket as soon as its own image landed has been observed to leave
- * Keraunos and the far Mimir unable to train. The caller is expected to load
- * every tile first and start them as a group.
- *
- * Two things have to be true before any of this works, and neither is done
- * here because neither belongs to a single tile:
- *
- *   - the SMC cold resets covering the tile and its interconnect must be
- *     lifted, and
- *   - the SMC inbound/outbound filters must permit the tile's address range.
- *
- * Until both hold, the tile does not answer at all and tt_d2d_load_fw() will
- * fail its reachability probe with -ENODEV rather than appearing to succeed.
+ * Cold reset and firewalls are chip-wide and are not done here. Until they
+ * are, load_fw() fails the SRAM probe with -ENODEV.
  */
 
 #include <stddef.h>
 #include <stdint.h>
 
 #include <zephyr/device.h>
+#include <zephyr/kernel.h>
 
 /**
- * @brief Deassert a D2D tile's subsystem resets.
- *
- * Brings the tile's NOC, APB, system, link-layer, AXI and QNP resets out one
- * at a time, in the order the hardware requires. Until this runs the tile does
- * not reliably answer accesses, so it must precede tt_d2d_load_fw().
+ * @brief Deassert a D2D tile's subsystem resets, in hardware order.
  *
  * @param dev D2D tile device
  *
@@ -58,16 +35,12 @@
 int tt_d2d_reset_release(const struct device *dev);
 
 /**
- * @brief Load firmware into a D2D tile, leaving it halted.
- *
- * Holds the tile's Rocket in reset, clears its SRAM, copies @p img in,
- * optionally reads it back to confirm it landed, and writes the configuration
- * block the firmware reads at startup. Call tt_d2d_start() to run it.
+ * @brief Load firmware into a D2D tile, leaving the Rocket halted.
  *
  * @param dev D2D tile device
  * @param img Firmware image
- * @param img_size Size of @p img in bytes. Must be a multiple of 4 and must
- *                 leave the configuration block at the top of SRAM untouched.
+ * @param img_size Size of @p img in bytes. Multiple of 4; must not overrun
+ *                 the configuration block at the top of SRAM.
  *
  * @retval 0 on success
  * @retval -EINVAL if @p img is NULL, empty, or not a multiple of 4 bytes
@@ -85,5 +58,29 @@ int tt_d2d_load_fw(const struct device *dev, const uint8_t *img, size_t img_size
  * @retval 0 on success
  */
 int tt_d2d_start(const struct device *dev);
+
+/**
+ * @brief Wait for this end of the link to finish training.
+ *
+ * Polls the firmware progress code in SRAM (link-layer status is not modelled
+ * on emu). Both ends must already have been started.
+ *
+ * @param dev D2D tile device
+ * @param timeout How long to wait, or K_FOREVER
+ *
+ * @retval 0 if the link trained
+ * @retval -EIO if the firmware reported a training failure
+ * @retval -ETIMEDOUT if it did neither
+ */
+int tt_d2d_wait_link(const struct device *dev, k_timeout_t timeout);
+
+/**
+ * @brief Firmware training progress code (drop d2d_api_fw_progress_codes.h).
+ *
+ * @param dev D2D tile device
+ *
+ * @return the firmware's current progress code, or 0 if none yet
+ */
+uint32_t tt_d2d_progress_code(const struct device *dev);
 
 #endif /* ZEPHYR_INCLUDE_DRIVERS_MISC_TT_D2D_H_ */
