@@ -346,6 +346,7 @@ def wait_arc_boot(asic_id, timeout=15, min_chips=None):
             logger.warning(
                 "Detected %d/%d ARC chip(s); rescanning PCIe bus", len(chips), needed
             )
+            del chips
         except Exception as e:
             logger.warning("SMC firmware requires a reset. Rescanning PCIe bus: %s", e)
         except BaseException as e:
@@ -365,17 +366,15 @@ def wait_arc_boot(asic_id, timeout=15, min_chips=None):
     chip = chips[asic_id]
     try:
         status = chip.axi_read32(ARC_STATUS)
-    except Exception:
-        logger.warning("SMC firmware requires a reset. Rescanning PCIe bus")
-        rescan_pcie()
-        status = chip.axi_read32(ARC_STATUS)
+    except Exception as e:
+        raise RuntimeError(f"Failed to read ARC status: {e}") from e
     assert (status & 0xFFFF0000) == 0xC0DE0000, "SMC firmware postcode is invalid"
     # Check post code status of firmware
     assert (status & 0xFFFF) >= 0x1D, "SMC firmware boot failed"
     # Remove references to chip objects so pyluwen will close file descriptors.
     # Otherwise these may become stale when SMC resets.
     logger.info("SMC detected")
-    return chips[asic_id]
+    return chip
 
 
 @pytest.fixture()
