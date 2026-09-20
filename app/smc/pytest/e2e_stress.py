@@ -12,6 +12,7 @@ import pyluwen
 import pytest
 
 from e2e_smoke import (
+    test_arc_msg,
     dirty_reset_test,
     smi_reset_test,
     smi_reset_with_eth,
@@ -95,6 +96,8 @@ def test_arc_watchdog(arc_chip_dut, asic_id):
     Validates that the DMC firmware watchdog for the ARC will correctly
     reset the chip
     """
+    # Temporary fix for stress CI failure
+    test_arc_msg(arc_chip_dut, asic_id)
     # todo: find better way to get test name
     test_name = "ARC watchdog test"
     total_tries = min(MAX_TEST_ITERATIONS, 100)
