@@ -18,6 +18,20 @@ Major enhancements with this release include:
 ### Reliability
 
 - Added GDDR CA latch-and-retest functionality (SYS-5042) to improve GDDR initialization reliability on Blackhole.
+- Hardened the SPI firmware table load that gates PCIe bring-up:
+  - The SPI RX sample delay is now trained before the firmware tables are read
+    (`CONFIG_FLASH_TRAINING_PRIORITY` 88, ahead of `CONFIG_BH_FWTABLE_INIT_PRIORITY`),
+    so the boot-critical tables are no longer the first reads at the full read
+    frequency with an untrained sample point.
+  - Each table load is retried (`CONFIG_BH_FWTABLE_LOAD_ATTEMPTS`, default 3) instead
+    of failing the boot on a single bad SPI read.
+  - The boot filesystem walk no longer accepts an arbitrary read with the invalid bit set
+    as the end-of-table sentinel, and rejects all-zero descriptors, so a flash that did
+    not answer a read fails loudly rather than reporting an empty table.
+  - A failed table load now sets bit `INIT_STAGE_FWTABLE` (5) in `STATUS_ERROR_STATUS0`.
+    Boot filesystem read diagnostics are published in `SCRATCH_RAM[30..31]` and the
+    trained RX sample delay windows in `SCRATCH_RAM[32]` (see `status_reg.h`), readable
+    over JTAG on a chip whose PCIe link never came up.
 
 ### Ethernet
 
