@@ -139,6 +139,39 @@ int tt_boot_fs_ls(const struct device *dev, tt_boot_fs_fd *fds, size_t nfds, siz
 int tt_boot_fs_find_fd_by_tag(const struct device *flash_dev, const uint8_t *tag,
 			      tt_boot_fs_fd *fd);
 
+/**
+ * @brief Boot filesystem read diagnostics
+ *
+ * Counters accumulate over every descriptor-table walk since boot. The `last_*`
+ * fields describe the read that ended the most recent walk which did not find
+ * its tag, so a host can tell a blank or corrupt first read (the walk stopped at
+ * slot 0 on a word that is not a real sentinel) from a tag that is genuinely
+ * absent (the walk reached the written sentinel).
+ */
+struct tt_boot_fs_diag {
+	/** Calls to @ref tt_boot_fs_find_fd_by_tag */
+	uint32_t lookups;
+	/** Lookups that returned `-ENOENT` */
+	uint32_t not_found;
+	/** Descriptor reads rejected as corrupt (checksum, blank or all-zero) */
+	uint32_t corrupt_fds;
+	/** Descriptor reads that failed at the flash driver */
+	uint32_t io_errors;
+	/** Slot index at which the last failed walk stopped */
+	uint32_t last_end_slot;
+	/** Flags word of the read that stopped the last failed walk */
+	uint32_t last_end_word;
+	/** Tag of the last lookup that returned `-ENOENT` */
+	uint8_t last_tag[TT_BOOT_FS_IMAGE_TAG_SIZE];
+};
+
+/**
+ * @brief Get the boot filesystem read diagnostics
+ *
+ * @return pointer to the live diagnostics record; never `NULL`
+ */
+const struct tt_boot_fs_diag *tt_boot_fs_get_diag(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -34,6 +34,44 @@ static void setup_fd(tt_boot_fs_fd *fd, uint32_t spi_addr, uint32_t copy_dest, u
 	fd->fd_crc = 0;
 }
 
+/* The three valid descriptors of the test filesystem, slots 0..2 */
+static tt_boot_fs_fd fds[3];
+
+/* Descriptor sector: 4 KiB at the head of the table */
+#define FD_SECTOR_SIZE 4096
+
+/*
+ * Rewrite the descriptor sector: the three valid descriptors followed by
+ * @p slot3, whatever the caller wants the walk to run into at slot 3. The
+ * image payloads live in other sectors and are left alone.
+ */
+static void write_descriptor_sector(const tt_boot_fs_fd *slot3)
+{
+	int rc = flash_erase(FLASH_DEVICE, TT_BOOT_FS_FD_HEAD_ADDR, FD_SECTOR_SIZE);
+
+	zassert_equal(rc, 0, "Failed to erase descriptor sector");
+
+	for (size_t i = 0; i < ARRAY_SIZE(fds); ++i) {
+		rc = flash_write(FLASH_DEVICE, TT_BOOT_FS_FD_HEAD_ADDR + i * sizeof(tt_boot_fs_fd),
+				 &fds[i], sizeof(tt_boot_fs_fd));
+		zassert_equal(rc, 0, "Failed to write fd[%zu] to flash", i);
+	}
+
+	if (slot3 != NULL) {
+		rc = flash_write(FLASH_DEVICE, TT_BOOT_FS_FD_HEAD_ADDR + 3 * sizeof(tt_boot_fs_fd),
+				 slot3, sizeof(tt_boot_fs_fd));
+		zassert_equal(rc, 0, "Failed to write slot 3 to flash");
+	}
+}
+
+/* The sentinel the pre-multi-table tooling wrote: zeros, invalid flag, valid checksum */
+static void written_sentinel(tt_boot_fs_fd *fd)
+{
+	memset(fd, 0, sizeof(*fd));
+	fd->flags.f.invalid = 1;
+	fd->fd_crc = tt_boot_fs_cksum(0, (uint8_t *)fd, sizeof(*fd) - sizeof(fd->fd_crc));
+}
+
 static void *setup_bootfs(void)
 {
 	printk("FLASH_DEVICE: %p\n", FLASH_DEVICE);
@@ -41,7 +79,6 @@ static void *setup_bootfs(void)
 	printk("Flash device ready: %s\n", device_is_ready(FLASH_DEVICE) ? "YES" : "NO");
 	zassert_not_null(FLASH_DEVICE, "FLASH_DEVICE is NULL!");
 
-	static tt_boot_fs_fd fds[3];
 	uint8_t image_A[] = {0x73, 0x73, 0x42, 0x42};
 	uint8_t image_B[] = {0x73, 0x73, 0x42, 0x42, 0x37, 0x37, 0x24, 0x24};
 	uint8_t image_C[] = {0x73, 0x73, 0x42, 0x42};
@@ -71,23 +108,10 @@ static void *setup_bootfs(void)
 
 	zassert_equal(rc, 0, "Failed to erase test bootfs area in flash");
 
-	rc = flash_write(FLASH_DEVICE, TT_BOOT_FS_FD_HEAD_ADDR, &fds[0], sizeof(tt_boot_fs_fd));
-	zassert_equal(rc, 0, "Failed to write fd[0] to flash");
-	rc = flash_write(FLASH_DEVICE, TT_BOOT_FS_FD_HEAD_ADDR + sizeof(tt_boot_fs_fd), &fds[1],
-			 sizeof(tt_boot_fs_fd));
-	zassert_equal(rc, 0, "Failed to write fd[1] to flash");
-	rc = flash_write(FLASH_DEVICE, TT_BOOT_FS_FD_HEAD_ADDR + 2 * sizeof(tt_boot_fs_fd), &fds[2],
-			 sizeof(tt_boot_fs_fd));
-	zassert_equal(rc, 0, "Failed to write fd[2] to flash");
+	tt_boot_fs_fd invalid_fd;
 
-	tt_boot_fs_fd invalid_fd = {0};
-
-	invalid_fd.flags.f.invalid = 1;
-	invalid_fd.fd_crc = tt_boot_fs_cksum(0, (uint8_t *)&invalid_fd,
-					     sizeof(tt_boot_fs_fd) - sizeof(invalid_fd.fd_crc));
-	rc = flash_write(FLASH_DEVICE, TT_BOOT_FS_FD_HEAD_ADDR + 3 * sizeof(tt_boot_fs_fd),
-			 &invalid_fd, sizeof(tt_boot_fs_fd));
-	zassert_equal(rc, 0, "Failed to write invalid FD to flash");
+	written_sentinel(&invalid_fd);
+	write_descriptor_sector(&invalid_fd);
 
 	rc = flash_write(FLASH_DEVICE, fds[0].spi_addr, image_A, sizeof(image_A));
 	zassert_equal(rc, 0, "Failed to write image_A to flash");
@@ -97,6 +121,17 @@ static void *setup_bootfs(void)
 	zassert_equal(rc, 0, "Failed to write image_C to flash");
 
 	return NULL;
+}
+
+/* Put the standard layout back so the remaining tests see what setup wrote */
+static void restore_bootfs(void *fixture)
+{
+	ARG_UNUSED(fixture);
+
+	tt_boot_fs_fd invalid_fd;
+
+	written_sentinel(&invalid_fd);
+	write_descriptor_sector(&invalid_fd);
 }
 
 /* all input must be aligned to a 4-byte boundary and be a multiple of 4 bytes */
@@ -255,4 +290,81 @@ ZTEST(tt_boot_fs, test_find_fd_by_tag)
 	}
 }
 
-ZTEST_SUITE(tt_boot_fs, NULL, setup_bootfs, NULL, NULL, NULL);
+/*
+ * An erased slot (all 0xFF) is the sentinel the current tooling writes; the
+ * walk must stop there exactly as it does on the explicitly written one.
+ */
+ZTEST(tt_boot_fs, test_erased_slot_is_a_sentinel)
+{
+	const uint8_t not_found_tag[8] = "notFound";
+	const struct tt_boot_fs_diag *diag = tt_boot_fs_get_diag();
+
+	/* Leaving slot 3 unwritten after the erase is what an erased sentinel is */
+	write_descriptor_sector(NULL);
+
+	zassert_equal(tt_boot_fs_ls(FLASH_DEVICE, NULL, MAX_FDS, 0), 3,
+		      "ls should count the three descriptors before the erased slot");
+
+	uint32_t not_found_before = diag->not_found;
+
+	zassert_equal(tt_boot_fs_find_fd_by_tag(FLASH_DEVICE, not_found_tag, NULL), -ENOENT,
+		      "a missing tag is -ENOENT when the walk reaches a genuine sentinel");
+	zassert_equal(diag->not_found, not_found_before + 1, "not_found should count the miss");
+	zassert_equal(diag->last_end_slot, 3, "the walk should have stopped at slot 3");
+	zassert_equal(diag->last_end_word, 0xFFFFFFFF, "the terminating word should be erased");
+	zassert_mem_equal(diag->last_tag, not_found_tag, TT_BOOT_FS_IMAGE_TAG_SIZE,
+			  "the missed tag should be recorded");
+}
+
+/*
+ * A read that has the invalid flag set but is neither erased nor a checksummed
+ * descriptor is not a sentinel: it is what a flash that did not answer, or a
+ * corrupted read, looks like. It must fail loudly rather than end the table.
+ */
+ZTEST(tt_boot_fs, test_corrupt_invalid_descriptor_is_rejected)
+{
+	const uint8_t found_tag[8] = "imageA";
+	const uint8_t not_found_tag[8] = "notFound";
+	const struct tt_boot_fs_diag *diag = tt_boot_fs_get_diag();
+	tt_boot_fs_fd corrupt;
+
+	memset(&corrupt, 0xA5, sizeof(corrupt));
+	corrupt.flags.f.invalid = 1;
+	write_descriptor_sector(&corrupt);
+
+	uint32_t corrupt_before = diag->corrupt_fds;
+
+	zassert_equal(tt_boot_fs_find_fd_by_tag(FLASH_DEVICE, not_found_tag, NULL), -ENXIO,
+		      "a corrupt slot must be reported, not treated as end of table");
+	zassert_equal(diag->corrupt_fds, corrupt_before + 1, "corrupt_fds should count it");
+	zassert_equal(tt_boot_fs_ls(FLASH_DEVICE, NULL, MAX_FDS, 0), -ENXIO,
+		      "ls must report the corrupt slot too");
+
+	/* Descriptors before the corrupt slot are still found */
+	zassert_equal(tt_boot_fs_find_fd_by_tag(FLASH_DEVICE, found_tag, NULL), 0,
+		      "a tag ahead of the corrupt slot is unaffected");
+}
+
+/*
+ * An all-zero read passes the word-sum checksum (0 == 0) and would previously
+ * have been walked over as a nameless descriptor. Nothing valid is all zeros.
+ */
+ZTEST(tt_boot_fs, test_all_zero_descriptor_is_rejected)
+{
+	const uint8_t not_found_tag[8] = "notFound";
+	const struct tt_boot_fs_diag *diag = tt_boot_fs_get_diag();
+	tt_boot_fs_fd zero;
+
+	memset(&zero, 0, sizeof(zero));
+	write_descriptor_sector(&zero);
+
+	uint32_t corrupt_before = diag->corrupt_fds;
+
+	zassert_equal(tt_boot_fs_find_fd_by_tag(FLASH_DEVICE, not_found_tag, NULL), -ENXIO,
+		      "an all-zero slot must be reported as corrupt");
+	zassert_equal(diag->corrupt_fds, corrupt_before + 1, "corrupt_fds should count it");
+	zassert_equal(tt_boot_fs_ls(FLASH_DEVICE, NULL, MAX_FDS, 0), -ENXIO,
+		      "ls must report the all-zero slot too");
+}
+
+ZTEST_SUITE(tt_boot_fs, NULL, setup_bootfs, NULL, restore_bootfs, NULL);

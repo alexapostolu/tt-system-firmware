@@ -181,29 +181,81 @@ int tt_boot_fs_get_file(const tt_boot_fs *tt_boot_fs, const uint8_t *tag, uint8_
 	return TT_BOOT_FS_OK;
 }
 
+static struct tt_boot_fs_diag diag;
+
+const struct tt_boot_fs_diag *tt_boot_fs_get_diag(void)
+{
+	return &diag;
+}
+
+static bool fd_is_filled_with(const tt_boot_fs_fd *fd, uint8_t byte)
+{
+	const uint8_t *raw = (const uint8_t *)fd;
+
+	for (size_t i = 0; i < sizeof(*fd); i++) {
+		if (raw[i] != byte) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static bool fd_crc_ok(const tt_boot_fs_fd *fd)
+{
+	return calculate_and_compare_checksum((uint8_t *)fd, sizeof(*fd) - sizeof(fd->fd_crc),
+					      fd->fd_crc, false) == TT_BOOT_FS_CHK_OK;
+}
+
 /**
  * @brief Reads and validates the descriptor at slot @p index
+ *
+ * A read is only accepted as the end-of-table sentinel if it is a genuine one:
+ * either an erased slot (all 0xFF) or a descriptor that was deliberately written
+ * with the invalid flag set and a valid checksum. A read that merely has bit 24
+ * set, or that came back as all zeros (which the word-sum checksum accepts), is
+ * reported as corrupt instead of silently ending the walk, so that a flash that
+ * did not answer a read cannot masquerade as an empty table.
  *
  * @retval 0 If @p fd is populated with a valid descriptor
  * @retval 1 If end of table sentinel; caller should stop iterating
  * @retval -EIO Flash read failure
- * @retval -ENXIO Checksum failure
+ * @retval -ENXIO Corrupt descriptor (checksum failure, blank or all-zero read)
  */
 static int read_and_validate_fd(const struct device *dev, size_t index, tt_boot_fs_fd *fd)
 {
-	int ret = flash_read(dev, TT_BOOT_FS_FD_HEAD_ADDR + index * sizeof(*fd), fd, sizeof(*fd));
+	const uint32_t fd_addr = TT_BOOT_FS_FD_HEAD_ADDR + index * sizeof(*fd);
+	int ret = flash_read(dev, fd_addr, fd, sizeof(*fd));
 
 	if (ret < 0) {
+		diag.io_errors++;
 		LOG_ERR("%s() failed: %d", "flash_read", ret);
 		return -EIO;
 	}
 
 	if (fd->flags.f.invalid) {
-		return 1;
+		if (fd_is_filled_with(fd, 0xFF) || fd_crc_ok(fd)) {
+			return 1;
+		}
+
+		diag.corrupt_fds++;
+		LOG_ERR("slot %zu @ 0x%08x: invalid flag set on a corrupt read "
+			"(spi_addr 0x%08x flags 0x%08x fd_crc 0x%08x)",
+			index, fd_addr, fd->spi_addr, fd->flags.val, fd->fd_crc);
+		return -ENXIO;
 	}
 
-	if (calculate_and_compare_checksum((uint8_t *)fd, sizeof(*fd) - sizeof(uint32_t),
-					   fd->fd_crc, false) != TT_BOOT_FS_CHK_OK) {
+	if (fd_is_filled_with(fd, 0x00)) {
+		diag.corrupt_fds++;
+		LOG_ERR("slot %zu @ 0x%08x: descriptor read back as all zeros", index, fd_addr);
+		return -ENXIO;
+	}
+
+	if (!fd_crc_ok(fd)) {
+		diag.corrupt_fds++;
+		LOG_ERR("slot %zu @ 0x%08x: descriptor checksum mismatch "
+			"(spi_addr 0x%08x flags 0x%08x fd_crc 0x%08x)",
+			index, fd_addr, fd->spi_addr, fd->flags.val, fd->fd_crc);
 		return -ENXIO;
 	}
 
@@ -222,7 +274,7 @@ int tt_boot_fs_ls(const struct device *dev, tt_boot_fs_fd *fds, size_t nfds, siz
 
 	size_t found = 0;
 
-	for (size_t i = 0; /* terminated via end-of-table sentinel */; i++) {
+	for (size_t i = 0; i < CONFIG_TT_BOOT_FS_IMAGE_COUNT_MAX; i++) {
 		tt_boot_fs_fd fd;
 		int ret = read_and_validate_fd(dev, i, &fd);
 
@@ -257,8 +309,12 @@ int tt_boot_fs_find_fd_by_tag(const struct device *flash_dev, const uint8_t *tag
 		return -ENXIO;
 	}
 
-	for (size_t i = 0; i < CONFIG_TT_BOOT_FS_IMAGE_COUNT_MAX; i++) {
-		tt_boot_fs_fd cur;
+	diag.lookups++;
+
+	tt_boot_fs_fd cur = {0};
+	size_t i;
+
+	for (i = 0; i < CONFIG_TT_BOOT_FS_IMAGE_COUNT_MAX; i++) {
 		int ret = read_and_validate_fd(flash_dev, i, &cur);
 
 		if (ret < 0) {
@@ -274,6 +330,30 @@ int tt_boot_fs_find_fd_by_tag(const struct device *flash_dev, const uint8_t *tag
 			}
 			return 0;
 		}
+	}
+
+	/*
+	 * Record how the walk ended so the failure can be told apart after the
+	 * fact: a sentinel at slot 0 means the very first read looked like the
+	 * end of the table, which no written image has.
+	 */
+	diag.not_found++;
+	diag.last_end_slot = i;
+	diag.last_end_word = cur.flags.val;
+	strncpy((char *)diag.last_tag, (const char *)tag, sizeof(diag.last_tag));
+
+	/* Tags are at most TT_BOOT_FS_IMAGE_TAG_SIZE bytes and need not be NUL-terminated */
+	char tag_str[TT_BOOT_FS_IMAGE_TAG_SIZE + 1] = {0};
+
+	memcpy(tag_str, diag.last_tag, sizeof(diag.last_tag));
+
+	if (i == 0) {
+		LOG_ERR("'%s' not found: first descriptor at 0x%08x reads as end of table "
+			"(flags 0x%08x)",
+			tag_str, (uint32_t)TT_BOOT_FS_FD_HEAD_ADDR, cur.flags.val);
+	} else {
+		LOG_WRN("'%s' not found after %zu descriptor(s) (last flags 0x%08x)", tag_str, i,
+			cur.flags.val);
 	}
 
 	return -ENOENT;
