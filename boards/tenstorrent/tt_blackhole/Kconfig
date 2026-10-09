@@ -3,11 +3,15 @@
 
 config FLASH_TRAINING_PRIORITY
 	int "Flash training priority"
-	default 95
+	default 88
 	help
 	  Initialization priority for flash training. This is used to train the
 	  SSI RX DELAY value for the best reliability. Must be greater than
-	  flash and MSPI init priority
+	  flash, MSPI and flash mux init priority, and less than the init
+	  priority of the first consumer that reads flash at the full read
+	  frequency (the bh_fwtable driver, CONFIG_BH_FWTABLE_INIT_PRIORITY), so
+	  that the boot-critical firmware tables are never read with an untrained
+	  sample delay.
 
 config FLASH_RESET_PRIORITY
 	int "Flash reset priority"

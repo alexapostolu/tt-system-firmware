@@ -13,6 +13,7 @@
 
 /* MCUboot builds this file too, but without the telemetry library */
 #ifdef CONFIG_TT_BH_ARC
+#include "status_reg.h"
 #include "telemetry.h"
 #endif
 
@@ -199,7 +200,29 @@ static int flash_jedec_id_init(void)
 }
 #endif
 
-static int flash_training_init(void)
+/*
+ * Publish the trained RX sample delay window so a chip's SPI read margin can be
+ * compared against its neighbours without a console: pre-reclock in the low
+ * half-word, post-reclock in the high one. 0xFF marks a pass that has not run
+ * or found nothing.
+ */
+static void publish_training_window(bool post_reclock, int delay_lb, int delay_ub)
+{
+#ifdef CONFIG_TT_BH_ARC
+	uint32_t shift = post_reclock ? 16 : 0;
+	uint32_t val = sys_read32(FLASH_RX_TRAINING_REG_ADDR);
+
+	val &= ~(0xFFFFu << shift);
+	val |= ((uint32_t)(delay_lb & 0xFF) | ((uint32_t)(delay_ub & 0xFF) << 8)) << shift;
+	sys_write32(val, FLASH_RX_TRAINING_REG_ADDR);
+#else
+	ARG_UNUSED(post_reclock);
+	ARG_UNUSED(delay_lb);
+	ARG_UNUSED(delay_ub);
+#endif
+}
+
+static int flash_training_init(bool post_reclock)
 {
 	struct mspi_dw_timing_cfg timing_cfg;
 	/* To avoid false positive */
@@ -231,6 +254,18 @@ static int flash_training_init(void)
 		timing_cfg.rx_sample_dly++;
 	} while ((spi_rx_buf != SPI_RX_TRAIN_DATA) &&
 		 (timing_cfg.rx_sample_dly < SSI_RX_DLY_SR_DEPTH));
+
+	if (spi_rx_buf != SPI_RX_TRAIN_DATA) {
+		/* No delay setting reads the pattern back; leave the delay at 0. */
+		LOG_ERR("RX sample delay training (%s reclock) found no working delay, "
+			"last read 0x%08x",
+			post_reclock ? "post" : "pre", spi_rx_buf);
+		publish_training_window(post_reclock, 0xFF, 0xFF);
+		timing_cfg.rx_sample_dly = 0;
+		return mspi_timing_config(mspi_dev, NULL, MSPI_DW_RX_TIMING_CFG,
+					  (void *)&timing_cfg);
+	}
+
 	delay_lb = timing_cfg.rx_sample_dly - 1;
 	/* Find the upper bound on the delay setting */
 	do {
@@ -249,21 +284,38 @@ static int flash_training_init(void)
 
 	/* Find midpoint of both delay settings */
 	timing_cfg.rx_sample_dly = (delay_ub - delay_lb) / 2 + delay_lb;
+
+	/*
+	 * A window that starts at 0 means the untrained reads before this point
+	 * were already inside it; a window that starts above 0 means they were
+	 * not, which is worth knowing when comparing chips.
+	 */
+	LOG_INF("RX sample delay window (%s reclock): [%d, %d], using %u",
+		post_reclock ? "post" : "pre", delay_lb, delay_ub, timing_cfg.rx_sample_dly);
+	publish_training_window(post_reclock, delay_lb, delay_ub);
+
 	return mspi_timing_config(mspi_dev, NULL, MSPI_DW_RX_TIMING_CFG, (void *)&timing_cfg);
 }
 
 static int flash_training_pre_reclock(void)
 {
-	return flash_training_init();
+	return flash_training_init(false);
 }
 
 static int flash_training_post_reclock(void)
 {
-	return flash_training_init();
+	return flash_training_init(true);
 }
 
 BUILD_ASSERT(CONFIG_FLASH_INIT_PRIORITY > CONFIG_FLASH_RESET_PRIORITY,
 	     "The flash driver probes after the bootrom reset handoff");
+BUILD_ASSERT(CONFIG_FLASH_TRAINING_PRIORITY > CONFIG_FLASH_INIT_PRIORITY,
+	     "Flash training reads through the flash driver");
+#ifdef CONFIG_BH_FWTABLE
+BUILD_ASSERT(CONFIG_FLASH_TRAINING_PRIORITY < CONFIG_BH_FWTABLE_INIT_PRIORITY,
+	     "bh_fwtable reads flash at the full read frequency; the RX sample delay must be "
+	     "trained first");
+#endif
 #ifdef CONFIG_FLASH_TT_MUX
 BUILD_ASSERT(CONFIG_FLASH_TT_MUX_INIT_PRIORITY < CONFIG_FLASH_TRAINING_PRIORITY,
 	     "Flash training reads through the selected flash configuration");
