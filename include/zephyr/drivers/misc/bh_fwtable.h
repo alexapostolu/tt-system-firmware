@@ -58,6 +58,14 @@ bool tt_bh_fwtable_is_p300_left_chip(void);
 uint32_t tt_bh_fwtable_get_asic_location(const struct device *dev);
 void tt_bh_fwtable_apply_ccfgovr(const struct device *dev);
 
+/**
+ * @brief Number of table load attempts beyond the first, summed over all tables
+ *
+ * Non-zero means a firmware table was found only after a retry: the first SPI
+ * read(s) of this boot did not return a usable descriptor table.
+ */
+uint32_t tt_bh_fwtable_get_load_retries(const struct device *dev);
+
 #ifdef __cplusplus
 }
 #endif

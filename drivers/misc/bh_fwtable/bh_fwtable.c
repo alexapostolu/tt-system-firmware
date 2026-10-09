@@ -46,6 +46,8 @@ struct bh_fwtable_data {
 	FwTable fw_table;
 	FlashInfoTable flash_info_table;
 	ReadOnly read_only_table;
+	/* Load attempts beyond the first, summed over all tables */
+	uint32_t load_retries;
 };
 
 /* Getter function that returns a const pointer to the fw table */
@@ -77,6 +79,13 @@ const ReadOnly *tt_bh_fwtable_get_read_only_table(const struct device *dev)
 		LOG_DBG("%s table has not been loaded", "Read Only");
 	}
 	return &data->read_only_table;
+}
+
+uint32_t tt_bh_fwtable_get_load_retries(const struct device *dev)
+{
+	struct bh_fwtable_data *data = dev->data;
+
+	return data->load_retries;
 }
 
 /* Converts a board id extracted from board type and converts it to a PCB Type */
@@ -164,9 +173,6 @@ uint32_t tt_bh_fwtable_get_asic_location(const struct device *dev)
 	return 0;
 }
 
-/* Loader function that deserializes the fw table bin from the SPI filesystem */
-static int tt_bh_fwtable_load(const struct device *dev, enum bh_fwtable_e table)
-{
 #define BH_FWTABLE_LOADCFG(_enum, _tag, _field, _msgtype)                                          \
 	[BH_FWTABLE_##_enum] = {                                                                   \
 		.tag = #_tag,                                                                      \
@@ -175,50 +181,103 @@ static int tt_bh_fwtable_load(const struct device *dev, enum bh_fwtable_e table)
 		.msg = &_msgtype##_msg,                                                            \
 	}
 
+static const struct loadcfg {
+	const char *tag;
+	size_t offs;             /* field offset within the bh_fwtable_data struct */
+	size_t size;             /* field size within the bh_fwtable_data struct */
+	const pb_msgdesc_t *msg; /* pointer to protobuf message */
+} loadcfg[] = {
+	BH_FWTABLE_LOADCFG(FLSHINFO, flshinfo, flash_info_table, FlashInfoTable),
+	BH_FWTABLE_LOADCFG(BOARDCFG, boardcfg, read_only_table, ReadOnly),
+	BH_FWTABLE_LOADCFG(CMFWCFG, cmfwcfg, fw_table, FwTable),
+};
+
+/**
+ * @brief One attempt at locating, reading and decoding a table from the SPI filesystem
+ *
+ * @retval 0        Table decoded into its field of the device data
+ * @retval -EIO     Descriptor lookup or payload read failed; worth retrying
+ * @retval -EINVAL  Payload did not decode; worth retrying, a bad read looks the same
+ * @retval -ENOMEM  Payload larger than the read buffer; retrying cannot help
+ */
+static int tt_bh_fwtable_load_once(const struct device *dev, enum bh_fwtable_e table)
+{
 	uint8_t buffer[256];
 	size_t bytes_read = 0;
 	struct bh_fwtable_data *data = dev->data;
 	const struct bh_fwtable_config *config = dev->config;
-	static const struct loadcfg {
-		const char *tag;
-		size_t offs;             /* field offset within the bh_fwtable_data struct */
-		size_t size;             /* field size within the bh_fwtable_data struct */
-		const pb_msgdesc_t *msg; /* pointer to protobuf message */
-	} loadcfg[] = {
-		BH_FWTABLE_LOADCFG(FLSHINFO, flshinfo, flash_info_table, FlashInfoTable),
-		BH_FWTABLE_LOADCFG(BOARDCFG, boardcfg, read_only_table, ReadOnly),
-		BH_FWTABLE_LOADCFG(CMFWCFG, cmfwcfg, fw_table, FwTable),
-	};
-
-	__ASSERT_NO_MSG(table < ARRAY_SIZE(loadcfg));
+	const struct loadcfg *cfg = &loadcfg[table];
 
 	tt_boot_fs_fd fd_data;
-	int result =
-		tt_boot_fs_find_fd_by_tag(config->flash, (uint8_t *)loadcfg[table].tag, &fd_data);
+	int result = tt_boot_fs_find_fd_by_tag(config->flash, (uint8_t *)cfg->tag, &fd_data);
+
 	if (result != TT_BOOT_FS_OK) {
-		LOG_ERR("%8s() failed with error code %d", loadcfg[table].tag, result);
+		LOG_ERR("%8s() failed with error code %d", cfg->tag, result);
 		return -EIO;
 	}
 
 	bytes_read = fd_data.flags.f.image_size;
 
 	if (bytes_read > sizeof(buffer)) {
-		LOG_ERR("Buffer is too small for %8s", loadcfg[table].tag);
+		LOG_ERR("Buffer is too small for %8s", cfg->tag);
 		return -ENOMEM;
 	}
 
-	flash_read(config->flash, fd_data.spi_addr, buffer, bytes_read);
+	result = flash_read(config->flash, fd_data.spi_addr, buffer, bytes_read);
+	if (result < 0) {
+		LOG_ERR("%s(%s @ 0x%08x) failed: %d", "flash_read", cfg->tag, fd_data.spi_addr,
+			result);
+		return -EIO;
+	}
+
 	/* Convert the binary data to a pb_istream_t that is expected by decode */
 	pb_istream_t stream = pb_istream_from_buffer(buffer, bytes_read);
 	/* PB_DECODE_NULLTERMINATED: Expect the message to be terminated with zero tag */
-	if (!pb_decode_ex(&stream, loadcfg[table].msg, (uint8_t *)data + loadcfg[table].offs,
+	if (!pb_decode_ex(&stream, cfg->msg, (uint8_t *)data + cfg->offs,
 			  PB_DECODE_NULLTERMINATED)) {
-		LOG_ERR("%s() failed: '%s'", "pb_decode_ex", loadcfg[table].tag);
+		LOG_ERR("%s() failed: '%s'", "pb_decode_ex", cfg->tag);
 		return -EINVAL;
 	}
 
-	LOG_DBG("Loaded %s", loadcfg[table].tag);
+	LOG_DBG("Loaded %s", cfg->tag);
 	return 0;
+}
+
+/*
+ * Loader function that deserializes the fw table bin from the SPI filesystem.
+ *
+ * The tables are boot-critical and this is the first flash traffic after the
+ * driver came up, so a single bad SPI read must not decide the whole boot:
+ * retry a bounded number of times before reporting failure.
+ */
+static int tt_bh_fwtable_load(const struct device *dev, enum bh_fwtable_e table)
+{
+	struct bh_fwtable_data *data = dev->data;
+	unsigned int attempt = 1;
+	int result;
+
+	__ASSERT_NO_MSG(table < ARRAY_SIZE(loadcfg));
+
+	while (true) {
+		result = tt_bh_fwtable_load_once(dev, table);
+		if (result == 0) {
+			if (attempt > 1) {
+				LOG_WRN("%s loaded on attempt %u of %u", loadcfg[table].tag,
+					attempt, CONFIG_BH_FWTABLE_LOAD_ATTEMPTS);
+			}
+			return 0;
+		}
+		if (result == -ENOMEM || attempt >= CONFIG_BH_FWTABLE_LOAD_ATTEMPTS) {
+			break;
+		}
+
+		data->load_retries++;
+		attempt++;
+		k_msleep(CONFIG_BH_FWTABLE_LOAD_RETRY_DELAY_MS);
+	}
+
+	LOG_ERR("%s not loaded after %u attempt(s): %d", loadcfg[table].tag, attempt, result);
+	return result;
 }
 
 #ifdef CONFIG_BH_FWTABLE_CCFGOVR

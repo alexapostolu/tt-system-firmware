@@ -22,7 +22,27 @@ config BH_FWTABLE_INIT_PRIORITY
 	help
 		Set the initialization priority for the Tenstorrent Blackhole firmware table.
 
-		This priority should be selected so that bh_fwtable is initialized after the SPI EEPROM.
+		This priority should be selected so that bh_fwtable is initialized after the SPI
+		EEPROM and after the SPI RX sample delay has been trained
+		(CONFIG_FLASH_TRAINING_PRIORITY), since the tables are the first thing read from
+		flash at the full read frequency.
+
+config BH_FWTABLE_LOAD_ATTEMPTS
+	int "Attempts to load each firmware table from flash"
+	default 3
+	range 1 10
+	help
+		Number of times a table lookup and read is attempted before the driver gives
+		up and leaves the device not ready. The tables are boot-critical: without them
+		PCIe stays disabled and the chip is unreachable from the host, so a transient
+		SPI read problem is worth a few retries.
+
+config BH_FWTABLE_LOAD_RETRY_DELAY_MS
+	int "Delay between firmware table load attempts (ms)"
+	default 1
+	range 0 100
+	help
+		Time to wait between consecutive attempts to load a firmware table.
 
 config BH_FWTABLE_CCFGOVR
 	bool "Apply ccfgovr override of the cmfwcfg table"
