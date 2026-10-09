@@ -82,6 +82,41 @@
  */
 #define RUNTIME_TELEMETRY_SIZE_REG_ADDR      RESET_UNIT_SCRATCH_RAM_REG_ADDR(23)
 
+/**
+ * @brief SPI boot filesystem read diagnostics for this boot.
+ *
+ * Cleared early in boot and published when the firmware tables have been
+ * loaded and again when init completes, so it is readable over JTAG even
+ * on a chip whose PCIe never came up. Layout (see @ref struct tt_boot_fs_diag):
+ *
+ * - [7:0]   descriptor lookups that returned -ENOENT (saturating)
+ * - [15:8]  descriptor reads rejected as corrupt (saturating)
+ * - [19:16] descriptor reads that failed at the flash driver (saturating)
+ * - [23:20] firmware table load retries (saturating)
+ * - [31:24] slot index at which the last failed lookup stopped
+ */
+#define BOOT_FS_DIAG_REG_ADDR      RESET_UNIT_SCRATCH_RAM_REG_ADDR(30)
+/**
+ * @brief Flags word of the flash read that ended the last failed boot-fs lookup.
+ *
+ * 0xFFFFFFFF or 0x01000000 together with a slot index of 0 in
+ * @ref BOOT_FS_DIAG_REG_ADDR means the very first read of the descriptor table
+ * looked like an empty table.
+ */
+#define BOOT_FS_DIAG_WORD_REG_ADDR RESET_UNIT_SCRATCH_RAM_REG_ADDR(31)
+/**
+ * @brief SPI flash RX sample delay training result.
+ *
+ * - [7:0]   lowest working delay before the PLL reclock
+ * - [15:8]  highest working delay before the PLL reclock
+ * - [23:16] lowest working delay after the PLL reclock
+ * - [31:24] highest working delay after the PLL reclock
+ *
+ * A byte of 0xFF means that training pass has not run or found no working
+ * delay. The delay in use is the midpoint of the most recent window.
+ */
+#define FLASH_RX_TRAINING_REG_ADDR RESET_UNIT_SCRATCH_RAM_REG_ADDR(32)
+
 #define STATUS_FW_VUART_REG_ADDR(n) RESET_UNIT_SCRATCH_RAM_REG_ADDR(40 + (n))
 /* SCRATCH_RAM_40 - SCRATCH_RAM_41 reserved for virtual uarts */
 #define STATUS_FW_SCRATCH_REG_ADDR  RESET_UNIT_SCRATCH_RAM_REG_ADDR(63)

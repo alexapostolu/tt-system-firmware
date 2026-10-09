@@ -34,6 +34,8 @@ enum init_stage_id {
 	INIT_STAGE_TENSIX = 2,
 	INIT_STAGE_MRISC_LOAD = 3,
 	INIT_STAGE_GDDR_TRAIN = 4,
+	/* The SPI firmware tables (boardcfg, flshinfo, cmfwcfg) did not load */
+	INIT_STAGE_FWTABLE = 5,
 	INIT_STAGE_COUNT,
 };
 
