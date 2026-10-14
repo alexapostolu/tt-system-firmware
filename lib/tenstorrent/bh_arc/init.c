@@ -67,6 +67,10 @@ static int clear_flash_diag_regs(void)
 	WriteReg(BOOT_FS_DIAG_REG_ADDR, 0);
 	WriteReg(BOOT_FS_DIAG_WORD_REG_ADDR, 0);
 	WriteReg(FLASH_RX_TRAINING_REG_ADDR, UINT32_MAX);
+	WriteReg(BOOT_FS_DIAG_PTR_REG_ADDR, 0);
+	WriteReg(BOOT_FS_DIAG_LAYOUT_REG_ADDR, 0);
+	WriteReg(INIT_STACK_HEADROOM_REG_ADDR, UINT32_MAX);
+	WriteReg(BOOT_FS_DIAG_END_PTR_REG_ADDR, 0);
 	return 0;
 }
 SYS_INIT(clear_flash_diag_regs, EARLY, 0);
@@ -84,6 +88,7 @@ static void publish_boot_fs_diag(void)
 {
 	const struct tt_boot_fs_diag *diag = tt_boot_fs_get_diag();
 	uint32_t retries = 0;
+	uint32_t end_table = MIN(diag->last_end_table, TT_BOOT_FS_TABLE_COUNT_MAX - 1);
 
 #if HAS_FWTABLE
 	retries = tt_bh_fwtable_get_load_retries(fwtable_dev);
@@ -96,6 +101,34 @@ static void publish_boot_fs_diag(void)
 			 FIELD_PREP(GENMASK(23, 20), saturate(retries, 0xF)) |
 			 FIELD_PREP(GENMASK(31, 24), saturate(diag->last_end_slot, 0xFF)));
 	WriteReg(BOOT_FS_DIAG_WORD_REG_ADDR, diag->last_end_word);
+	WriteReg(BOOT_FS_DIAG_PTR_REG_ADDR, diag->last_table_addr[0]);
+	WriteReg(BOOT_FS_DIAG_END_PTR_REG_ADDR, diag->last_table_addr[end_table]);
+	WriteReg(BOOT_FS_DIAG_LAYOUT_REG_ADDR,
+		 FIELD_PREP(GENMASK(7, 0), saturate(diag->legacy_fallbacks, 0xFF)) |
+			 FIELD_PREP(GENMASK(15, 8), saturate(diag->ptr_rejects, 0xFF)) |
+			 FIELD_PREP(GENMASK(23, 16), saturate(diag->layout_rereads_differ, 0xFF)) |
+			 FIELD_PREP(GENMASK(27, 24), saturate(diag->last_end_table, 0xF)));
+}
+
+/*
+ * How close the init sequence came to overflowing the thread stack it runs
+ * on. Every SYS_INIT at POST_KERNEL executes on the main thread, so its
+ * high-water mark at the end of init is the one that matters for a silent
+ * overflow during boot.
+ */
+static void publish_init_stack_headroom(void)
+{
+#ifdef CONFIG_INIT_STACKS
+	size_t unused;
+
+	if (k_thread_stack_space_get(k_current_get(), &unused) == 0) {
+		WriteReg(INIT_STACK_HEADROOM_REG_ADDR, unused);
+		if (unused < CONFIG_MAIN_STACK_SIZE / 8) {
+			printk("WARNING: init thread stack headroom is only %zu of %u bytes\n",
+			       unused, CONFIG_MAIN_STACK_SIZE);
+		}
+	}
+#endif
 }
 
 static int bh_arc_init_start(void)
@@ -146,6 +179,7 @@ static int bh_arc_init_end(void)
 
 	/* Final snapshot: every boot-time flash lookup has run by now */
 	publish_boot_fs_diag();
+	publish_init_stack_headroom();
 
 	SetPostCode(POST_CODE_SRC_CMFW, POST_CODE_ZEPHYR_INIT_DONE);
 	printk("Tenstorrent Blackhole CMFW %s\n", APP_VERSION_STRING);

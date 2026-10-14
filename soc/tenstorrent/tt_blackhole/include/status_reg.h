@@ -95,7 +95,7 @@
  * - [23:20] firmware table load retries (saturating)
  * - [31:24] slot index at which the last failed lookup stopped
  */
-#define BOOT_FS_DIAG_REG_ADDR      RESET_UNIT_SCRATCH_RAM_REG_ADDR(30)
+#define BOOT_FS_DIAG_REG_ADDR         RESET_UNIT_SCRATCH_RAM_REG_ADDR(30)
 /**
  * @brief Flags word of the flash read that ended the last failed boot-fs lookup.
  *
@@ -103,7 +103,7 @@
  * @ref BOOT_FS_DIAG_REG_ADDR means the very first read of the descriptor table
  * looked like an empty table.
  */
-#define BOOT_FS_DIAG_WORD_REG_ADDR RESET_UNIT_SCRATCH_RAM_REG_ADDR(31)
+#define BOOT_FS_DIAG_WORD_REG_ADDR    RESET_UNIT_SCRATCH_RAM_REG_ADDR(31)
 /**
  * @brief SPI flash RX sample delay training result.
  *
@@ -115,7 +115,42 @@
  * A byte of 0xFF means that training pass has not run or found no working
  * delay. The delay in use is the midpoint of the most recent window.
  */
-#define FLASH_RX_TRAINING_REG_ADDR RESET_UNIT_SCRATCH_RAM_REG_ADDR(32)
+#define FLASH_RX_TRAINING_REG_ADDR    RESET_UNIT_SCRATCH_RAM_REG_ADDR(32)
+/**
+ * @brief ROM table (table 0) pointer as read by the last failed boot-fs lookup.
+ *
+ * The raw flash address the walk used as the base of the ROM table, which
+ * holds boardcfg. The image writes 0x0 here; any other value means the
+ * pointer itself was misread. On a flash that went from the single-table to
+ * the multi-table layout the old descriptors are still present behind the new
+ * sentinel, so a misread pointer walks real descriptors and the failure only
+ * surfaces in a later table; this register, not the one below, then names it.
+ */
+#define BOOT_FS_DIAG_PTR_REG_ADDR     RESET_UNIT_SCRATCH_RAM_REG_ADDR(33)
+/**
+ * @brief Boot-fs layout diagnostics for this boot.
+ *
+ * - [7:0]   header reads without the multi-table magic (legacy fallback taken)
+ * - [15:8]  table pointers rejected, or advertised tables found empty
+ * - [23:16] failed lookups after which the header and pointers re-read differently
+ * - [27:24] table index whose walk ended the last failed lookup
+ */
+#define BOOT_FS_DIAG_LAYOUT_REG_ADDR  RESET_UNIT_SCRATCH_RAM_REG_ADDR(34)
+/**
+ * @brief Unused bytes left on the init (main) thread stack when init completed.
+ *
+ * Only meaningful when the build has CONFIG_INIT_STACKS; otherwise 0xFFFFFFFF.
+ * A small value here means the init sequence came close to overflowing its
+ * stack, which would silently corrupt whatever lies below it.
+ */
+#define INIT_STACK_HEADROOM_REG_ADDR  RESET_UNIT_SCRATCH_RAM_REG_ADDR(35)
+/**
+ * @brief Pointer of the table whose walk ended the last failed boot-fs lookup.
+ *
+ * The table index is in @ref BOOT_FS_DIAG_LAYOUT_REG_ADDR [27:24]. Equal to
+ * @ref BOOT_FS_DIAG_PTR_REG_ADDR when that index is 0.
+ */
+#define BOOT_FS_DIAG_END_PTR_REG_ADDR RESET_UNIT_SCRATCH_RAM_REG_ADDR(36)
 
 #define STATUS_FW_VUART_REG_ADDR(n) RESET_UNIT_SCRATCH_RAM_REG_ADDR(40 + (n))
 /* SCRATCH_RAM_40 - SCRATCH_RAM_41 reserved for virtual uarts */
