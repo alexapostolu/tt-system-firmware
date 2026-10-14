@@ -72,6 +72,38 @@ static void written_sentinel(tt_boot_fs_fd *fd)
 	fd->fd_crc = tt_boot_fs_cksum(0, (uint8_t *)fd, sizeof(*fd) - sizeof(fd->fd_crc));
 }
 
+/*
+ * Publish a multi-table header advertising @p table_count tables, the first of
+ * them at @p table0_addr. Only the first pointer is written; tests that need
+ * more tables than that do not exist yet.
+ */
+static void publish_bootfs_header(uint32_t version, uint32_t table_count, uint32_t table0_addr)
+{
+	int rc = flash_erase(FLASH_DEVICE, TT_BOOT_FS_HEADER_ADDR, 4096);
+
+	zassert_equal(rc, 0, "Failed to erase bootfs header area in flash");
+
+	tt_boot_fs_header header = {
+		.magic = TT_BOOT_FS_MAGIC,
+		.version = version,
+		.table_count = table_count,
+	};
+
+	rc = flash_write(FLASH_DEVICE, TT_BOOT_FS_HEADER_ADDR, &header, sizeof(header));
+	zassert_equal(rc, 0, "Failed to write bootfs header to flash");
+
+	rc = flash_write(FLASH_DEVICE, TT_BOOT_FS_HEADER_ADDR + sizeof(header), &table0_addr,
+			 sizeof(table0_addr));
+	zassert_equal(rc, 0, "Failed to write bootfs table address to flash");
+}
+
+static void erase_bootfs_header(void)
+{
+	int rc = flash_erase(FLASH_DEVICE, TT_BOOT_FS_HEADER_ADDR, 4096);
+
+	zassert_equal(rc, 0, "Failed to erase bootfs header area in flash");
+}
+
 static void *setup_bootfs(void)
 {
 	printk("FLASH_DEVICE: %p\n", FLASH_DEVICE);
@@ -120,6 +152,8 @@ static void *setup_bootfs(void)
 	rc = flash_write(FLASH_DEVICE, fds[2].spi_addr, image_C, sizeof(image_C));
 	zassert_equal(rc, 0, "Failed to write image_C to flash");
 
+	publish_bootfs_header(TT_BOOT_FS_CURRENT_VERSION, 1, TT_BOOT_FS_FD_HEAD_ADDR);
+
 	return NULL;
 }
 
@@ -132,6 +166,7 @@ static void restore_bootfs(void *fixture)
 
 	written_sentinel(&invalid_fd);
 	write_descriptor_sector(&invalid_fd);
+	publish_bootfs_header(TT_BOOT_FS_CURRENT_VERSION, 1, TT_BOOT_FS_FD_HEAD_ADDR);
 }
 
 /* all input must be aligned to a 4-byte boundary and be a multiple of 4 bytes */
@@ -365,6 +400,85 @@ ZTEST(tt_boot_fs, test_all_zero_descriptor_is_rejected)
 	zassert_equal(diag->corrupt_fds, corrupt_before + 1, "corrupt_fds should count it");
 	zassert_equal(tt_boot_fs_ls(FLASH_DEVICE, NULL, MAX_FDS, 0), -ENXIO,
 		      "ls must report the all-zero slot too");
+}
+
+ZTEST(tt_boot_fs, test_header_validation_and_legacy_fallback)
+{
+	const uint8_t found_tag[8] = "imageA";
+	const struct tt_boot_fs_diag *diag = tt_boot_fs_get_diag();
+	uint32_t legacy_before = diag->legacy_fallbacks;
+
+	/* An erased header represents an image from before the multi-table format. */
+	erase_bootfs_header();
+	zassert_equal(tt_boot_fs_find_fd_by_tag(FLASH_DEVICE, found_tag, NULL), 0,
+		      "Legacy fixed table addresses were not used");
+	zassert_equal(diag->legacy_fallbacks, legacy_before + 1,
+		      "the legacy fallback should be counted");
+
+	publish_bootfs_header(TT_BOOT_FS_CURRENT_VERSION, TT_BOOT_FS_TABLE_COUNT_MAX + 1,
+			      TT_BOOT_FS_FD_HEAD_ADDR);
+	zassert_equal(tt_boot_fs_find_fd_by_tag(FLASH_DEVICE, found_tag, NULL), -ENXIO,
+		      "An excessive table count should be rejected");
+
+	publish_bootfs_header(TT_BOOT_FS_CURRENT_VERSION + 1, 1, TT_BOOT_FS_FD_HEAD_ADDR);
+	zassert_equal(tt_boot_fs_find_fd_by_tag(FLASH_DEVICE, found_tag, NULL), -ENXIO,
+		      "An unknown header version should be rejected");
+}
+
+/*
+ * A table pointer that is not descriptor-aligned cannot point at a table and
+ * must be rejected before anything is read through it.
+ */
+ZTEST(tt_boot_fs, test_misaligned_table_pointer_is_rejected)
+{
+	const uint8_t found_tag[8] = "imageA";
+	const struct tt_boot_fs_diag *diag = tt_boot_fs_get_diag();
+	uint32_t rejects_before = diag->ptr_rejects;
+
+	publish_bootfs_header(TT_BOOT_FS_CURRENT_VERSION, 1, TT_BOOT_FS_FD_HEAD_ADDR + 4);
+
+	zassert_equal(tt_boot_fs_find_fd_by_tag(FLASH_DEVICE, found_tag, NULL), -ENXIO,
+		      "a misaligned table pointer must be rejected");
+	zassert_equal(diag->ptr_rejects, rejects_before + 1, "ptr_rejects should count it");
+	zassert_equal(diag->last_table_addr[0], TT_BOOT_FS_FD_HEAD_ADDR + 4,
+		      "the rejected pointer should be recorded");
+	zassert_equal(tt_boot_fs_ls(FLASH_DEVICE, NULL, MAX_FDS, 0), -ENXIO,
+		      "ls must reject it too");
+}
+
+/*
+ * The failure mode a corrupted pointer actually produces: an aligned value
+ * that points past the written descriptors into erased flash. The first slot
+ * there is a sentinel, so without this check the table would look empty and
+ * the lookup would silently return -ENOENT. An advertised table always has at
+ * least one descriptor, so an empty one means the pointer is wrong.
+ */
+ZTEST(tt_boot_fs, test_pointer_into_erased_flash_is_rejected)
+{
+	const uint8_t found_tag[8] = "imageA";
+	const struct tt_boot_fs_diag *diag = tt_boot_fs_get_diag();
+	uint32_t rejects_before = diag->ptr_rejects;
+	/* Slot 6: beyond the three descriptors and the sentinel written at slot 3 */
+	const uint32_t bad_ptr = TT_BOOT_FS_FD_HEAD_ADDR + 6 * sizeof(tt_boot_fs_fd);
+
+	publish_bootfs_header(TT_BOOT_FS_CURRENT_VERSION, 1, bad_ptr);
+
+	zassert_equal(tt_boot_fs_find_fd_by_tag(FLASH_DEVICE, found_tag, NULL), -ENXIO,
+		      "an advertised table that reads as empty must not be trusted");
+	zassert_equal(diag->ptr_rejects, rejects_before + 1, "ptr_rejects should count it");
+	zassert_equal(diag->last_table_addr[0], bad_ptr, "the bad pointer should be recorded");
+	zassert_equal(diag->last_end_table, 0, "table 0 should be the one that ended the walk");
+	zassert_equal(diag->last_end_slot, 0, "the walk should have ended at slot 0");
+	zassert_equal(diag->last_end_word, 0xFFFFFFFF, "on an erased word");
+	zassert_mem_equal(diag->last_tag, found_tag, TT_BOOT_FS_IMAGE_TAG_SIZE,
+			  "the tag being looked up should be recorded");
+	zassert_equal(tt_boot_fs_ls(FLASH_DEVICE, NULL, MAX_FDS, 0), -ENXIO,
+		      "ls must reject it too");
+
+	/* The same pointer value is fine when the image really has no header */
+	erase_bootfs_header();
+	zassert_equal(tt_boot_fs_find_fd_by_tag(FLASH_DEVICE, found_tag, NULL), 0,
+		      "legacy addresses are unaffected by the stale pointer");
 }
 
 ZTEST_SUITE(tt_boot_fs, NULL, setup_bootfs, NULL, restore_bootfs, NULL);
