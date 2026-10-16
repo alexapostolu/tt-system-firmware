@@ -294,6 +294,10 @@ static int flash_training_init(bool post_reclock)
 		post_reclock ? "post" : "pre", delay_lb, delay_ub, timing_cfg.rx_sample_dly);
 	publish_training_window(post_reclock, delay_lb, delay_ub);
 
+	if (IS_ENABLED(CONFIG_FLASH_TRAINING_DIAG_LEGACY_ORDER) && !post_reclock) {
+		LOG_WRN("Diagnostic build: the firmware tables were read before this training");
+	}
+
 	return mspi_timing_config(mspi_dev, NULL, MSPI_DW_RX_TIMING_CFG, (void *)&timing_cfg);
 }
 
@@ -311,7 +315,7 @@ BUILD_ASSERT(CONFIG_FLASH_INIT_PRIORITY > CONFIG_FLASH_RESET_PRIORITY,
 	     "The flash driver probes after the bootrom reset handoff");
 BUILD_ASSERT(CONFIG_FLASH_TRAINING_PRIORITY > CONFIG_FLASH_INIT_PRIORITY,
 	     "Flash training reads through the flash driver");
-#ifdef CONFIG_BH_FWTABLE
+#if defined(CONFIG_BH_FWTABLE) && !defined(CONFIG_FLASH_TRAINING_DIAG_LEGACY_ORDER)
 BUILD_ASSERT(CONFIG_FLASH_TRAINING_PRIORITY < CONFIG_BH_FWTABLE_INIT_PRIORITY,
 	     "bh_fwtable reads flash at the full read frequency; the RX sample delay must be "
 	     "trained first");

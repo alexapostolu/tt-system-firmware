@@ -1,8 +1,23 @@
 # Copyright (c) 2025 Tenstorrent AI ULC
 # SPDX-License-Identifier: Apache-2.0
 
+config FLASH_TRAINING_DIAG_LEGACY_ORDER
+	bool "Diagnostic: train the SPI RX sample delay after the firmware tables"
+	depends on BH_FWTABLE
+	help
+	  Reproduce the init order of releases up to 19.16, in which the
+	  bh_fwtable driver read the boot-critical firmware tables at the full
+	  read frequency before the SSI RX sample delay had been trained. For
+	  A/B testing of boot-time SPI read failures only: with this set, the
+	  tables are read with an untrained sample delay again, the default
+	  FLASH_TRAINING_PRIORITY moves back to 95, and the build-time ordering
+	  check is skipped. The bh_fwtable retry and the boot-fs diagnostics
+	  stay in place, so a read that only succeeds on a retry is recorded
+	  rather than lost.
+
 config FLASH_TRAINING_PRIORITY
 	int "Flash training priority"
+	default 95 if FLASH_TRAINING_DIAG_LEGACY_ORDER
 	default 88
 	help
 	  Initialization priority for flash training. This is used to train the
@@ -11,7 +26,8 @@ config FLASH_TRAINING_PRIORITY
 	  priority of the first consumer that reads flash at the full read
 	  frequency (the bh_fwtable driver, CONFIG_BH_FWTABLE_INIT_PRIORITY), so
 	  that the boot-critical firmware tables are never read with an untrained
-	  sample delay.
+	  sample delay. FLASH_TRAINING_DIAG_LEGACY_ORDER deliberately breaks
+	  that rule for experiments.
 
 config FLASH_RESET_PRIORITY
 	int "Flash reset priority"
