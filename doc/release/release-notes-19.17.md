@@ -19,6 +19,14 @@ Major enhancements with this release include:
   - SerDes register reads now update the shared NOC read counters, so tt-metal's NOC barriers stay in sync.
   - Added an execution-stage breadcrumb (`eth_status.eth_fw_stage`), shared with tt-metal, showing what the Ethernet firmware is currently doing.
 
+### Persistent SPI Flash Parameters
+
+- Add `feature_enable.bypass_cable_fault_detection` to the firmware table and
+  expose it to `bh-mod`. When set, the SMC skips the boot-time cable fault
+  check (the 12V-2x6 power limit the DMC reports), so a 0 W limit no longer
+  puts the chip into low-power cable fault mode. Off in every board table;
+  intended for bring-up and debug. `bh-mod res` restores the cmfwcfg value.
+
 ## Migration guide
 
 An overview of required and recommended changes to make when migrating from the previous v19.16.0 release can be found in [19.17 Migration Guide](https://github.com/tenstorrent/tt-system-firmware/tree/main/doc/release/migration-guide-19.17.md).
