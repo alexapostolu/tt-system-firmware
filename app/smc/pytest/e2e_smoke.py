@@ -2325,6 +2325,114 @@ def test_ccfgovr_pcie_gen_override(arc_chip_dut, asic_id):
         wait_arc_boot(asic_id, timeout=60)
 
 
+def test_ccfgovr_max_tdp_limit_override(arc_chip_dut, asic_id):
+    """
+    Exercise the host TDP ceiling override that ccfgovr merges into
+    FwTable.chip_limits.max_tdp_limit.
+
+    max_tdp_limit caps what TT_SMC_MSG_SET_TDP_LIMIT will accept. The
+    throttler clamps it to [tdp_limit, 500 W], so a cmfwcfg that leaves it
+    unset (every non-Galaxy board) only lets the host lower the limit. Move
+    the ceiling to a few watts above the boot-time limit with `bh-mod` and
+    check SET_TDP_LIMIT honours exactly that ceiling:
+
+    - the boot-time limit itself is unchanged by the override,
+    - a request at the ceiling is accepted and shows up in telemetry,
+    - a request one watt above is refused and leaves the limit alone,
+    - `bh-mod res` clears the override.
+    """
+    bh_mod = shutil.which("bh-mod") or os.path.expanduser("~/bh-mod")
+    if not os.path.isfile(bh_mod):
+        pytest.skip("bh-mod not found (PATH or ~/bh-mod)")
+
+    MAX_TDP_PATH = "chip_limits.max_tdp_limit"
+    # throttler_limit_ranges[kThrottlerTDP].max in lib/tenstorrent/bh_arc/throttler.c
+    TDP_THROTTLER_RANGE_MAX = 500
+    HEADROOM = 10  # W above the boot-time limit
+
+    chip = pyluwen.detect_chips()[asic_id]
+    # Start from the boot-time limit in case an earlier test left it moved.
+    response = chip.as_bh().arc_msg_buf([TT_SMC_MSG_SET_TDP_LIMIT, 0, 1, 0, 0, 0, 0, 0])
+    assert response[0] == 0, "Failed to restore the default TDP limit"
+    tdp_default = chip.get_telemetry().tdp_limit_max
+    logger.info(f"Boot-time TDP limit: {tdp_default} W")
+    del chip
+
+    ceiling = tdp_default + HEADROOM
+    if ceiling > TDP_THROTTLER_RANGE_MAX:
+        pytest.skip(
+            f"tdp_limit={tdp_default} W leaves no headroom under the "
+            f"{TDP_THROTTLER_RANGE_MAX} W TDP throttler range"
+        )
+
+    write = subprocess.run(
+        [bh_mod, "--reset-timeout=60s", "set", f"{MAX_TDP_PATH}={ceiling}"],
+        capture_output=True,
+        check=False,
+    )
+    assert write.returncode == 0, (
+        f"bh-mod set {MAX_TDP_PATH}={ceiling} failed, rc={write.returncode}; "
+        f"stdout={write.stdout.decode(errors='replace')!r} "
+        f"stderr={write.stderr.decode(errors='replace')!r}"
+    )
+    chip = wait_arc_boot(asic_id, timeout=60)
+
+    try:
+        measured = chip.get_telemetry().tdp_limit_max
+        assert measured == tdp_default, (
+            f"{MAX_TDP_PATH} must not move the boot-time limit: "
+            f"expected tdp_limit_max={tdp_default}, got {measured}"
+        )
+
+        response = chip.as_bh().arc_msg_buf(
+            [TT_SMC_MSG_SET_TDP_LIMIT, ceiling, 0, 0, 0, 0, 0, 0]
+        )
+        assert response[0] == 0, f"SET_TDP_LIMIT to the {ceiling} W ceiling was refused"
+        measured = chip.get_telemetry().tdp_limit_max
+        assert measured == ceiling, (
+            f"expected tdp_limit_max={ceiling} after SET_TDP_LIMIT, got {measured}"
+        )
+
+        response = chip.as_bh().arc_msg_buf(
+            [TT_SMC_MSG_SET_TDP_LIMIT, ceiling + 1, 0, 0, 0, 0, 0, 0]
+        )
+        assert response[0] != 0, (
+            f"SET_TDP_LIMIT to {ceiling + 1} W should exceed the {ceiling} W ceiling"
+        )
+        measured = chip.get_telemetry().tdp_limit_max
+        assert measured == ceiling, (
+            f"a refused SET_TDP_LIMIT must leave the limit alone: "
+            f"expected {ceiling}, got {measured}"
+        )
+
+        response = chip.as_bh().arc_msg_buf(
+            [TT_SMC_MSG_SET_TDP_LIMIT, 0, 1, 0, 0, 0, 0, 0]
+        )
+        assert response[0] == 0, "Failed to restore the default TDP limit"
+        measured = chip.get_telemetry().tdp_limit_max
+        assert measured == tdp_default, (
+            f"TDP limit not restored to {tdp_default} W, got {measured}"
+        )
+    finally:
+        del chip
+        # Clear the override even if an assertion failed, since it persists
+        # across tt-flash. Warn (don't fail) if this doesn't succeed, so a
+        # stale flash state can't flake later tests / CI runs.
+        restore = subprocess.run(
+            [bh_mod, "--reset-timeout=60s", "res", MAX_TDP_PATH],
+            capture_output=True,
+            check=False,
+        )
+        if restore.returncode != 0:
+            logger.warning(
+                f"Failed to clear {MAX_TDP_PATH} (rc={restore.returncode}); "
+                f"SPI flash may be left modified: "
+                f"{restore.stderr.decode(errors='replace')}"
+            )
+        else:
+            wait_arc_boot(asic_id, timeout=60)
+
+
 def test_heartbeat_telemetry(arc_chip_dut, asic_id):
     """
     Polls the heartbeat telemetry every 100ms and verifies that it's incrementing.

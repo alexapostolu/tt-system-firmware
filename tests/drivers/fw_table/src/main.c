@@ -46,6 +46,8 @@ static const struct device *const fwtable_dev = DEVICE_DT_GET(FWTABLE_NODE);
 #define FD_AREA_ERASE_SIZE 0x1000U
 
 #define DEFAULT_TDP_LIMIT 150U
+/* Most tables leave this unset, which pins the host's TDP ceiling at tdp_limit. */
+#define DEFAULT_MAX_TDP_LIMIT 0U
 /* Stands in for a cmfwcfg that pins the link speed, as the Galaxy tables do. */
 #define DEFAULT_ETH_SPEED 200U
 /* Distinct per instance so a pci0 override cannot silently rewrite pci1. */
@@ -91,6 +93,17 @@ static size_t encode_tdp_limit_override(uint8_t *out, size_t out_size, uint32_t 
 	ovr.has_chip_limits = true;
 	ovr.chip_limits.has_tdp_limit = true;
 	ovr.chip_limits.tdp_limit = value;
+
+	return encode_override(&ovr, out, out_size);
+}
+
+static size_t encode_max_tdp_limit_override(uint8_t *out, size_t out_size, uint32_t value)
+{
+	FwTableOverride ovr = FwTableOverride_init_zero;
+
+	ovr.has_chip_limits = true;
+	ovr.chip_limits.has_max_tdp_limit = true;
+	ovr.chip_limits.max_tdp_limit = value;
 
 	return encode_override(&ovr, out, out_size);
 }
@@ -198,6 +211,7 @@ static void reset_fwtable(void)
 
 	memset(t, 0, sizeof(*t));
 	t->chip_limits.tdp_limit = DEFAULT_TDP_LIMIT;
+	t->chip_limits.max_tdp_limit = DEFAULT_MAX_TDP_LIMIT;
 	t->eth_property_table.has_eth_speed_override = true;
 	t->eth_property_table.eth_speed_override = DEFAULT_ETH_SPEED;
 	t->pci0_property_table.max_pcie_speed = DEFAULT_PCI0_SPEED;
@@ -249,6 +263,27 @@ ZTEST(bh_fwtable_ccfgovr, test_happy_path_active_bank_applies)
 	zassert_equal(
 		tt_bh_fwtable_get_fw_table(fwtable_dev)->eth_property_table.eth_speed_override,
 		DEFAULT_ETH_SPEED, "fields absent from the override must keep their cmfwcfg value");
+}
+
+/**
+ * @brief Test that the host TDP ceiling can be raised independently of tdp_limit
+ *
+ * max_tdp_limit only caps TT_SMC_MSG_SET_TDP_LIMIT, so overriding it must not
+ * touch the boot-time tdp_limit.
+ */
+ZTEST(bh_fwtable_ccfgovr, test_max_tdp_limit_override_applies)
+{
+	uint8_t body[16];
+	size_t body_len = encode_max_tdp_limit_override(body, sizeof(body), 200U);
+	struct ccfgovr_bank_hdr hdr = {.magic = CCFGOVR_MAGIC, .seq = 2};
+
+	write_bank(BANK_A_ADDR, &hdr, body, body_len);
+
+	tt_bh_fwtable_apply_ccfgovr(fwtable_dev);
+	zassert_equal(tt_bh_fwtable_get_fw_table(fwtable_dev)->chip_limits.max_tdp_limit, 200U,
+		      "expected override to set max_tdp_limit=200");
+	zassert_equal(tt_bh_fwtable_get_fw_table(fwtable_dev)->chip_limits.tdp_limit,
+		      DEFAULT_TDP_LIMIT, "max_tdp_limit override must not clobber tdp_limit");
 }
 
 /**
