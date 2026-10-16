@@ -2049,7 +2049,24 @@ def test_bindesc(arc_chip_dut, asic_id):
     logger.info(f"Bindesc version: 0x{bindesc_version:08x}")
 
 
-def test_ccfgovr_bh_mod(unlaunched_dut: DeviceAdapter, asic_id: int):
+def _smi_reset_after_bh_mod(board_name):
+    """
+    Reset the chip with tt-smi after a bh-mod write. bh-mod resets the chip
+    itself, but only waits for it to reappear on PCIe, not for ARC to boot.
+    """
+    if board_name is not None and "galaxy" in board_name.lower():
+        cmd = ["tt-smi", "-glx_reset", "--eth_train_skip"]
+    else:
+        cmd = ["tt-smi", "-r", "--eth_train_skip"]
+    result = subprocess.run(cmd, capture_output=True, check=False)
+    if result.returncode != 0:
+        logger.warning(
+            f"'{' '.join(cmd)}' after bh-mod failed (rc={result.returncode}): "
+            f"{result.stdout.decode(errors='replace')}"
+        )
+
+
+def test_ccfgovr_bh_mod(unlaunched_dut: DeviceAdapter, asic_id: int, board_name):
     """
     Test bh-mod can persist overrides in SPI flash via the A/B ccfgovr mechanism,
     and that they are not overridden by tt-flash.
@@ -2092,8 +2109,9 @@ def test_ccfgovr_bh_mod(unlaunched_dut: DeviceAdapter, asic_id: int):
         check=False,
     )
     assert result.returncode == 0, f"bh-mod set failed, rc={result.returncode}"
+    _smi_reset_after_bh_mod(board_name)
 
-    chip = wait_arc_boot(asic_id)
+    chip = wait_arc_boot(asic_id, timeout=60)
     # Verify the overrides were applied by the running firmware.
     measured_tdp = chip.get_telemetry().tdp_limit_max
     assert measured_tdp == tdp_target, (
@@ -2141,6 +2159,8 @@ def test_ccfgovr_bh_mod(unlaunched_dut: DeviceAdapter, asic_id: int):
             f"Failed to restore baseline config (rc={restore.returncode}); "
             f"SPI flash may be left modified: {restore.stderr.decode(errors='replace')}"
         )
+    else:
+        _smi_reset_after_bh_mod(board_name)
     del chip
     wait_arc_boot(asic_id, timeout=60)
 
@@ -2199,6 +2219,7 @@ def test_ccfgovr_eth_speed_override(arc_chip_dut, asic_id, board_name):
         f"stdout={write.stdout.decode(errors='replace')!r} "
         f"stderr={write.stderr.decode(errors='replace')!r}"
     )
+    _smi_reset_after_bh_mod(board_name)
     # ARC has to be back after bh-mod applied the override with a reset.
     wait_arc_boot(asic_id, timeout=60)
 
@@ -2217,10 +2238,11 @@ def test_ccfgovr_eth_speed_override(arc_chip_dut, asic_id, board_name):
             f"{restore.stderr.decode(errors='replace')}"
         )
     else:
+        _smi_reset_after_bh_mod(board_name)
         wait_arc_boot(asic_id, timeout=60)
 
 
-def test_ccfgovr_pcie_gen_override(arc_chip_dut, asic_id):
+def test_ccfgovr_pcie_gen_override(arc_chip_dut, asic_id, board_name):
     """
     Exercise the PCIe generation override that ccfgovr merges into
     FwTable.pci{0,1}_property_table.max_pcie_speed.
@@ -2295,6 +2317,7 @@ def test_ccfgovr_pcie_gen_override(arc_chip_dut, asic_id):
         f"stdout={write.stdout.decode(errors='replace')!r} "
         f"stderr={write.stderr.decode(errors='replace')!r}"
     )
+    _smi_reset_after_bh_mod(board_name)
     wait_arc_boot(asic_id, timeout=60)
 
     verify = subprocess.run(
@@ -2322,7 +2345,95 @@ def test_ccfgovr_pcie_gen_override(arc_chip_dut, asic_id):
             f"{restore.stderr.decode(errors='replace')}"
         )
     else:
+        _smi_reset_after_bh_mod(board_name)
         wait_arc_boot(asic_id, timeout=60)
+
+
+def test_ccfgovr_bypass_cable_fault_override(arc_chip_dut, asic_id, board_name):
+    """
+    Exercise the cable fault bypass that ccfgovr merges into
+    FwTable.feature_enable.bypass_cable_fault_detection.
+
+    A cable fault cannot be induced from software (the DMC derives the
+    12V-2x6 power limit from GPIO sense pins), so instead of provoking one
+    this drives the paths that would fail if the override were mis-handled:
+
+    - Writing the bypass and letting `bh-mod` reset the chip leaves ARC
+      coming back up, with `bh-mod get` showing the override. The reset is
+      the end-to-end path through the `FwTableOverride` encode, the SPI
+      write, the ccfgovr merge into `FwTable`, and `DeassertTileResets()`
+      taking the bypass branch instead of reading the DMC power limit.
+    - With the check bypassed, the cable-fault init error bit stays clear.
+    - `bh-mod res` clears the override.
+    """
+    bh_mod = shutil.which("bh-mod") or os.path.expanduser("~/bh-mod")
+    if not os.path.isfile(bh_mod):
+        pytest.skip("bh-mod not found (PATH or ~/bh-mod)")
+    # Pin bh-mod to the DUT. Without `-d` it acts on every chip it can see,
+    # so on dual-chip boards (P300) `set`/`res` would write and reset both
+    # ASICs, and `get -f json` keys its output by chip id instead of by field.
+    bh_mod_cmd = [bh_mod, "-d", f"/dev/tenstorrent/{asic_id}"]
+
+    BYPASS_PATH = "feature_enable.bypass_cable_fault_detection"
+    # BIT(INIT_STAGE_CABLE_FAULT) from lib/tenstorrent/bh_arc/init.h
+    ERROR_STATUS0_CABLE_FAULT = 1 << 1
+
+    write = subprocess.run(
+        [*bh_mod_cmd, "--reset-timeout=60s", "set", f"{BYPASS_PATH}=true"],
+        capture_output=True,
+        check=False,
+    )
+    assert write.returncode == 0, (
+        f"bh-mod set {BYPASS_PATH}=true failed, rc={write.returncode}; "
+        f"stdout={write.stdout.decode(errors='replace')!r} "
+        f"stderr={write.stderr.decode(errors='replace')!r}"
+    )
+    _smi_reset_after_bh_mod(board_name)
+
+    chip = None
+    try:
+        # ARC has to be back after bh-mod applied the override with a reset.
+        chip = wait_arc_boot(asic_id, timeout=60)
+        err = chip.axi_read32(ERROR_STATUS0)
+        chip = None  # drop the descriptor before handing the chip to bh-mod
+        assert err & ERROR_STATUS0_CABLE_FAULT == 0, (
+            f"cable fault recorded with detection bypassed: ERROR_STATUS0=0x{err:08x}"
+        )
+
+        verify = subprocess.run(
+            [*bh_mod_cmd, "get", "-f", "json", BYPASS_PATH],
+            capture_output=True,
+            check=False,
+        )
+        assert verify.returncode == 0, (
+            f"bh-mod get {BYPASS_PATH} failed, rc={verify.returncode}; "
+            f"stdout={verify.stdout.decode(errors='replace')!r} "
+            f"stderr={verify.stderr.decode(errors='replace')!r}"
+        )
+        row = json.loads(verify.stdout.decode())[BYPASS_PATH]
+        assert str(row.get("override")).lower() == "true", (
+            f"expected override {BYPASS_PATH}=true, got {row!r}"
+        )
+    finally:
+        chip = None
+        # Clear the override even if an assertion failed: it persists across
+        # tt-flash and leaves the board without cable fault protection. Warn
+        # (don't fail) if this doesn't succeed, so a stale flash state can't
+        # flake later tests / CI runs.
+        restore = subprocess.run(
+            [*bh_mod_cmd, "--reset-timeout=60s", "res", BYPASS_PATH],
+            capture_output=True,
+            check=False,
+        )
+        if restore.returncode != 0:
+            logger.warning(
+                f"Failed to clear {BYPASS_PATH} (rc={restore.returncode}); "
+                f"SPI flash may be left modified: "
+                f"{restore.stderr.decode(errors='replace')}"
+            )
+        else:
+            _smi_reset_after_bh_mod(board_name)
+            wait_arc_boot(asic_id, timeout=60)
 
 
 def test_heartbeat_telemetry(arc_chip_dut, asic_id):
