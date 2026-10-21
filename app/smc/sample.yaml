@@ -72,6 +72,7 @@ tests:
       - dmc_CONFIG_DMC_RUN_SMBUS_TESTS=y
     harness_config:
       pytest_root:
+        - pytest/e2e_bh_mod.py
         - pytest/e2e_stress.py
       pytest_args:
         - "--dut-scope=session"
