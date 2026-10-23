@@ -276,7 +276,12 @@ void NocInitSingleTile(uint8_t noc0_x, uint8_t noc0_y)
 	bool tile_clk_off;
 
 	if (is_cable_fault_mode()) {
-		tile_clk_off = (px != 15);
+		/* Gate every tile except the ones the host path depends on: the ARC column
+		 * (px == 15) and the two PCIe nodes. pcie_init runs in cable fault mode and
+		 * talks to the controller through these nodes, and the host must still be
+		 * able to enumerate the card to read the cable fault status.
+		 */
+		tile_clk_off = (px != 15) && !IsPcieNode(px, py);
 	} else {
 		tile_clk_off = GetTileClkDisable(px, py);
 	}

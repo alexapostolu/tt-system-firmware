@@ -7,6 +7,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "noc.h"
+#include "pcie.h"
 #include "compiler.h"
 
 #define NOC_REGS_START_ADDR     0xFFB20000
@@ -190,6 +191,18 @@ void GetEthNocCoords(uint8_t eth_inst, uint8_t noc_id, uint8_t *x, uint8_t *y)
 {
 	*x = PhysXToNoc(eth_inst + 1, noc_id);
 	*y = PhysYToNoc(1, noc_id);
+}
+
+bool IsPcieNode(uint8_t px, uint8_t py)
+{
+	/* The PCIe controllers hang off the two row-0 NOC2AXI nodes. Derive the physical
+	 * coordinates from the NOC0 coordinates pcie.c uses so the two can't drift apart.
+	 */
+	if (py != NocToPhysY(PCIE_LOGICAL_Y, 0)) {
+		return false;
+	}
+
+	return px == NocToPhysX(PCIE_INST0_LOGICAL_X, 0) || px == NocToPhysX(PCIE_INST1_LOGICAL_X, 0);
 }
 
 void GetSerdesNocCoords(uint8_t serdes_inst, uint8_t noc_id, uint8_t *x, uint8_t *y)

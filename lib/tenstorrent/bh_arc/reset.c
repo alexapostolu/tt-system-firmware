@@ -88,8 +88,9 @@ void record_init_failure(enum init_stage_id stage)
 }
 
 /* Cable fault mode: true when DMC reports 0W power limit (no cable or improper installation).
- * In this mode, all tiles except column 15 are clock-gated via NIU_CFG_0 TILE_CLK_OFF to minimize
- * power draw, while maintaining the full NOC mesh and ARC-PCIe path for host communication.
+ * In this mode, all tiles except the ARC column (px 15) and the two PCIe nodes are clock-gated
+ * via NIU_CFG_0 TILE_CLK_OFF to minimize power draw. The NOC mesh, ARC and PCIe stay active so
+ * the host can still enumerate the card and read the fault status.
  */
 static bool cable_fault_mode;
 
@@ -362,8 +363,8 @@ static int DeassertTileResets(void)
 			cable_fault_mode = true;
 			record_init_failure(INIT_STAGE_CABLE_FAULT);
 			LOG_WRN("Cable fault detected (0W power limit). "
-				"Entering low-power mode - clock-gating all tiles except column 15 "
-				"(contains ARC).");
+				"Entering low-power mode - clock-gating all tiles except the ARC "
+				"column and the PCIe nodes.");
 		}
 	} else {
 		/* Legacy DMC without cable power limit feature - skip cable fault check */
