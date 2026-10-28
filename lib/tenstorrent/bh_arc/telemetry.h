@@ -494,12 +494,25 @@ typedef union {
  */
 #define TAG_FLASH_JEDEC_ID 80
 
+/** @brief ARC address of the telemetry tag name table.
+ *
+ * The table lets host tools enumerate tags by name instead of mirroring this
+ * header. It is laid out as 32-bit little-endian words in ARC memory:
+ * - word 0: number of name slots (equal to @ref TAG_COUNT of the running firmware)
+ * - word 1 + tag: ARC address of the NUL-terminated name of `tag` (e.g. "TAG_AICLK"),
+ *   or 0 if the firmware does not publish `tag`
+ *
+ * Names are the tag macro names in this header, so they follow the same
+ * compatibility rules as tag numbers.
+ */
+#define TAG_NAME_TABLE_ADDR 81
+
 /** @} */ /* end of telemetry_tag group */
 
 /* Not a real tag, signifies the last tag in the list.
  * MUST be incremented if new tags are defined.
  */
-#define TAG_COUNT 81
+#define TAG_COUNT 82
 
 /* Telemetry tags are at offset `tag` in the telemetry buffer */
 #define TELEM_OFFSET(tag) (tag)
@@ -550,5 +563,9 @@ void UpdateTelemetryGddrThermTrip(bool enabled);
 telemetry_feature_flags_bits_0_t GetActiveFeatures(void);
 bool GetTelemetryTagValid(uint16_t tag);
 uint32_t GetTelemetryTag(uint16_t tag);
+/** @brief Get the name of a telemetry tag, as published in @ref TAG_NAME_TABLE_ADDR.
+ * @return The tag macro name (e.g. "TAG_AICLK"), or NULL if @p tag is not published.
+ */
+const char *GetTelemetryTagName(uint16_t tag);
 
 #endif

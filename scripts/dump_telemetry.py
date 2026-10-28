@@ -31,6 +31,9 @@ TABLE_VERSION_OFFSET = 0x0
 TABLE_ENTRY_COUNT_OFFSET = 0x4
 TABLE_TAG_TABLE_OFFSET = 0x8
 
+TAG_NAME_TABLE_ADDR = 81
+MAX_TAG_NAME_LEN = 64
+
 # Sanity bound so a garbage table pointer doesn't make us read forever
 MAX_ENTRY_COUNT = 1024
 
@@ -114,6 +117,34 @@ def read_tag_table(chip):
     return version, table_addr, data_addr, entries
 
 
+def read_string(chip, addr, max_len=MAX_TAG_NAME_LEN):
+    """Read a NUL-terminated string from ARC memory, one 32-bit word at a time."""
+    raw = b""
+    while len(raw) < max_len:
+        raw += chip.axi_read32(addr + len(raw)).to_bytes(4, "little")
+        if b"\0" in raw:
+            break
+    return raw.split(b"\0", 1)[0].decode("ascii")
+
+
+def read_device_tag_names(chip, data_addr, entries):
+    """Return a {tag_id: name} map published by the firmware, or {} if it publishes none."""
+    offsets = dict(entries)
+    if TAG_NAME_TABLE_ADDR not in offsets:
+        return {}
+    names_addr = chip.axi_read32(data_addr + 4 * offsets[TAG_NAME_TABLE_ADDR])
+    count = chip.axi_read32(names_addr)
+    if count > MAX_ENTRY_COUNT:
+        raise RuntimeError(f"Implausible telemetry name count: {count}")
+
+    names = {}
+    for tag in range(count):
+        name_addr = chip.axi_read32(names_addr + 4 + 4 * tag)
+        if name_addr != 0:
+            names[tag] = read_string(chip, name_addr)
+    return names
+
+
 def dump_telemetry(asic_id, tags=None, tag_names=None):
     """
     Dump telemetry from one or more ASICs.
@@ -130,6 +161,7 @@ def dump_telemetry(asic_id, tags=None, tag_names=None):
         try:
             chip = pcie_utils.get_chip(aid)
             version, table_addr, data_addr, entries = read_tag_table(chip)
+            device_names = read_device_tag_names(chip, data_addr, entries)
         except Exception as e:
             print(f"Error reading telemetry from ASIC {aid}: {e}")
             rc = errno.EIO
@@ -144,7 +176,7 @@ def dump_telemetry(asic_id, tags=None, tag_names=None):
             if tags and tag not in tags:
                 continue
             value = chip.axi_read32(data_addr + 4 * offset)
-            name = tag_names.get(tag, f"TAG_{tag}")
+            name = device_names.get(tag) or tag_names.get(tag, f"TAG_{tag}")
             print(f"{tag:>4}  {name:<30} {offset:>6}  0x{value:08x}  {value:>11}")
         print()
     return rc

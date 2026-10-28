@@ -46,6 +46,8 @@ As documented in
 - Walk the telemetry ``tag_table``.
 - Use the discovered tag-to-offset mapping to determine whether a given tag is
   present in the running firmware.
+- If ``TAG_NAME_TABLE_ADDR`` is present, read the tag names from the running
+  firmware instead of hardcoding them.
 
 This is the preferred discovery mechanism for new telemetry entries.
 

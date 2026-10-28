@@ -17,6 +17,10 @@ We are pleased to announce the release of TT System Firmware version 19.17.0 ðŸ¥
   - SerDes register reads now update the shared NOC read counters, so tt-metal's NOC barriers stay in sync.
   - Added an execution-stage breadcrumb (`eth_status.eth_fw_stage`), shared with tt-metal, showing what the Ethernet firmware is currently doing.
 
+### Telemetry
+
+- Publish the telemetry tag names as `TAG_NAME_TABLE_ADDR` (tag 81), the ARC address of a table holding a name count followed by the address of each tag's name (e.g. `TAG_AICLK`), or `0` for unpublished tags. Host tools can enumerate tags by name instead of mirroring `telemetry.h`.
+
 ### Persistent SPI Flash Parameters
 
 - Add `feature_enable.bypass_cable_fault_detection` to the firmware table and

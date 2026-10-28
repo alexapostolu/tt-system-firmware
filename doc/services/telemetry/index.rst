@@ -34,6 +34,21 @@ Via MMIO Access to ARC Memory
    - Look up the offset in the tag-offset mapping.
    - Read 4 bytes starting from ``SCRATCH_RAM[12] + 4 * offset``.
 
+Tag Names
+~~~~~~~~~
+
+Firmware that publishes ``TAG_NAME_TABLE_ADDR`` also publishes the name of every tag in
+``tag_table``, so host tools can enumerate tags without mirroring ``telemetry.h``:
+
+1. Read the ``TAG_NAME_TABLE_ADDR`` telemetry value. This is the ARC address of the name table.
+   If the tag is not in ``tag_table``, the firmware does not publish names.
+2. Read the 32-bit name count at that address.
+3. For each tag below the count, read the 32-bit word at ``TAG_NAME_TABLE_ADDR + 4 + 4 * tag``.
+   A non-zero word is the ARC address of the tag's NUL-terminated name, e.g. ``TAG_AICLK``.
+   Zero means the tag is not published.
+
+The names do not change unless the firmware gets updated, so they can be read once and cached.
+
 Via SMBUS
 ~~~~~~~~~
 
