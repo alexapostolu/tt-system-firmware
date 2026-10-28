@@ -75,6 +75,7 @@ tests:
         - pytest/e2e_stress.py
       pytest_args:
         - "--dut-scope=session"
+        - "--log-cli-level=INFO"
       record:
         regex:
           - >-

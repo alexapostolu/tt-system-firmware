@@ -106,7 +106,7 @@ def test_arc_watchdog(arc_chip_dut, asic_id):
 
     for i in range(total_tries):
         if i % 10 == 0:
-            logger.info(f"{test_name} iteration {i}/{total_tries}")
+            logger.debug(f"{test_name} iteration {i}/{total_tries}")
 
         result = arc_watchdog_test(asic_id)
         if not result:
@@ -135,7 +135,7 @@ def test_pcie_fw_load_time(arc_chip_dut, asic_id):
     failure_fail_count = 0
 
     for i in range(total_tries):
-        logger.info(
+        logger.debug(
             f"Starting PCIe firmware load time test iteration {i}/{total_tries}"
         )
         # Reset the SMC to ensure we have a clean state
@@ -170,7 +170,7 @@ def test_smi_reset(arc_chip_dut, asic_id):
     dmfw_ping_max = 0
     for i in range(total_tries):
         if i % 10 == 0:
-            logger.info(f"{test_name} iteration {i}/{total_tries}")
+            logger.debug(f"{test_name} iteration {i}/{total_tries}")
 
         result = smi_reset_test(asic_id)
 
@@ -198,7 +198,7 @@ def test_smi_reset(arc_chip_dut, asic_id):
         del arc_chip
 
     if not _skip_boards():
-        logger.info(
+        logger.debug(
             f"Average DMFW ping time (after reset): {dmfw_ping_avg:.2f} ms, "
             f"Max DMFW ping time (after reset): {dmfw_ping_max:.2f} ms."
         )
@@ -218,7 +218,7 @@ def test_smi_reset_with_eth(arc_chip_dut, asic_id):
     total_tries = 10
     fail_count = 0
     for i in range(total_tries):
-        logger.info(f"Iteration {i}:")
+        logger.debug(f"Iteration {i}:")
         result = smi_reset_with_eth(asic_id)
 
         if not result:
@@ -227,7 +227,7 @@ def test_smi_reset_with_eth(arc_chip_dut, asic_id):
             )
             fail_count += 1
 
-    logger.info(
+    logger.debug(
         f"'tt-smi -r' with ethernet training failed {fail_count}/{total_tries} times."
     )
     assert fail_count == 0, (
@@ -252,7 +252,7 @@ def test_dirty_reset():
 
     for i in range(total_tries):
         if i % 10 == 0:
-            logger.info(f"{test_name} iteration {i}/{total_tries}")
+            logger.debug(f"{test_name} iteration {i}/{total_tries}")
 
         result = dirty_reset_test()
         if not result:
@@ -294,12 +294,12 @@ def test_dmc_ping(arc_chip_dut, asic_id):
         duration = arc_chip.axi_read32(PING_DMFW_DURATION_REG_ADDR)
         dmfw_ping_avg += duration / total_tries
         dmfw_ping_max = max(dmfw_ping_max, duration)
-    logger.info(
+    logger.debug(
         f"Ping statistics: {total_tries - fail_count} successful pings, "
         f"{fail_count} failed pings."
     )
     # Recalculate the average ping time
-    logger.info(
+    logger.debug(
         f"Average DMFW ping time: {dmfw_ping_avg:.2f} ms, "
         f"Max DMFW ping time: {dmfw_ping_max:.2f} ms."
     )
@@ -450,7 +450,7 @@ def test_power_virus(arc_chip_dut, asic_id):
         for i in range(NUM_TS):
             rsp = chip.arc_msg(TT_SMC_MSG_READ_TS, True, False, i, 0, 1000)
         # Best-effort logging; exact response layout is FW-defined
-        logger.info(f"READ_TS idx={sensor_idx} rsp={rsp}")
+        logger.debug(f"READ_TS idx={sensor_idx} rsp={rsp}")
         # If status is present as second field, ensure success
         if len(rsp) > 1:
             assert rsp[1] == 0, f"READ_TS status error for TS[{sensor_idx}]"
@@ -466,7 +466,7 @@ def test_power_virus(arc_chip_dut, asic_id):
         time.sleep(0.1)
 
     # Run tt-burnin for 180s and read_ts at the same time
-    logger.info("Starting tt-burnin process for power virus test")
+    logger.debug("Starting tt-burnin process for power virus test")
     burnin_process = subprocess.Popen(
         ["tt-burnin", "--no-reset"],
         stdin=subprocess.PIPE,
@@ -502,7 +502,7 @@ def test_power_virus(arc_chip_dut, asic_id):
 
     finally:
         # Stop tt-burnin
-        logger.info("Stopping tt-burnin process")
+        logger.debug("Stopping tt-burnin process")
         if burnin_process.poll() is None:
             # Send enter key to stop tt-burnin gracefully
             try:
@@ -520,7 +520,7 @@ def test_power_virus(arc_chip_dut, asic_id):
                     burnin_process.kill()
                     burnin_process.wait()
 
-    logger.info(
+    logger.debug(
         f"Power virus test completed with {fail_count} temperature read failures"
     )
     assert fail_count == 0, (
@@ -546,7 +546,7 @@ def test_tensix_reset_then_burnin(arc_chip_dut, asic_id):
 
     # We want to test the tensix reset message on low power.
     # Set high power after the message to allow NOC read/write to function properly.
-    logger.info(f"Resetting {len(all_tiles)} Tensix tiles")
+    logger.debug(f"Resetting {len(all_tiles)} Tensix tiles")
     arc_chip.set_power_state("low")
     for noc_x, noc_y in all_tiles:
         response = arc_chip.arc_msg(
@@ -557,10 +557,10 @@ def test_tensix_reset_then_burnin(arc_chip_dut, asic_id):
             f"Tensix ({noc_x}, {noc_y}) reset failed with {response[1]}"
         )
     arc_chip.set_power_state("high")
-    logger.info("  Succeeded")
+    logger.debug("  Succeeded")
 
     duration = 180
-    logger.info(f"Running tt-burnin for {duration}s")
+    logger.debug(f"Running tt-burnin for {duration}s")
 
     burnin_process = subprocess.Popen(
         ["tt-burnin", "--no-reset"],
@@ -599,4 +599,4 @@ def test_tensix_reset_then_burnin(arc_chip_dut, asic_id):
     assert burnin_process.returncode == 0, (
         f"tt-burnin failed with {burnin_process.returncode}"
     )
-    logger.info("  Succeeded")
+    logger.debug("  Succeeded")
