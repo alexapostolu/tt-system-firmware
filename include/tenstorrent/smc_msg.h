@@ -142,6 +142,9 @@ enum tt_smc_msg {
 	/** @brief @ref gddr_reset_rqst "Toggle GDDR reset request" */
 	TT_SMC_MSG_TOGGLE_GDDR_RESET = 0xB6,
 
+	/** @brief @ref gr_telemetry_rqst "Grendel telemetry push control" */
+	TT_SMC_MSG_GR_TELEMETRY = 0xB7,
+
 	/** @brief @ref set_last_serial_rqst "Set message queue serial number request" */
 	TT_SMC_MSG_SET_LAST_SERIAL = 0xBE,
 

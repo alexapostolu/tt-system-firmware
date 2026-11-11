@@ -6,6 +6,16 @@ zephyr_library_sources(grendel_utils.c)
 
 zephyr_library_sources_ifdef(CONFIG_TT_GR_SMC_LOG_BRIDGE grendel_log_bridge.c)
 
+if(CONFIG_TT_GR_TELEMETRY)
+  zephyr_library_sources(gr_telemetry.c)
+  zephyr_library_sources_ifdef(CONFIG_TT_GR_TELEMETRY_MOCK gr_telemetry_mock.c)
+  zephyr_linker_sources(DATA_SECTIONS gr_telemetry.ld)
+endif()
+
+if(EXISTS ${APPLICATION_SOURCE_DIR}/VERSION)
+  zephyr_library_compile_definitions(HAS_APP_VERSION=1)
+endif()
+
 # Sival SDK compilations
 include(${CMAKE_CURRENT_SOURCE_DIR}/../../../cmake/sival_sdk.cmake)
 tt_sival_sdk_extract(${CMAKE_CURRENT_SOURCE_DIR}/../../../zephyr/blobs/grendel-sival-sdk.tar.gz)

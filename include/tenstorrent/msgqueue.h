@@ -1017,6 +1017,36 @@ struct tt_pcie_log_rqst {
 	uint32_t buffer_size;
 };
 
+/** @brief Host request to start or stop pushing Grendel telemetry to a host buffer
+ * @details Messages of this type are processed by @ref gr_telemetry_handler.
+ *
+ * See @ref gr_telemetry for the buffer layout.
+ */
+struct gr_telemetry_rqst {
+	/** @brief The command code corresponding to @ref TT_SMC_MSG_GR_TELEMETRY */
+	uint8_t command_code;
+
+	/** @brief The sub-command, of type @ref gr_telem_subcmd */
+	uint8_t subcmd;
+
+	/** @brief Source chiplet of the telemetry, @ref GR_TELEM_CHIPLET_SELF for this one */
+	uint8_t chiplet;
+
+	uint8_t reserved;
+
+	/** @brief Lower 32 bits of the host push buffer IOVA (for PUSH_START) */
+	uint32_t buffer_addr_lo;
+
+	/** @brief Upper 32 bits of the host push buffer IOVA (for PUSH_START) */
+	uint32_t buffer_addr_hi;
+
+	/** @brief Push buffer size in bytes (for PUSH_START) */
+	uint32_t buffer_size;
+
+	/** @brief Interval between pushed frames in ms, or 0 for the default (for PUSH_START) */
+	uint32_t period_ms;
+};
+
 /** @brief A tenstorrent host request*/
 union request {
 	/** @brief The interpretation of the request as an array of uint32_t entries*/
@@ -1145,6 +1175,9 @@ union request {
 
 	/** @brief A tt_pcie_log setup/release request */
 	struct tt_pcie_log_rqst tt_pcie_log;
+
+	/** @brief A Grendel telemetry push control request */
+	struct gr_telemetry_rqst gr_telemetry;
 };
 
 /** @} */

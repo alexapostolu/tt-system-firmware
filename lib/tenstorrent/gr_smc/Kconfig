@@ -15,6 +15,55 @@ config TT_GR_SMC_ERR_STR
 	  Compile grendel_err_to_str from the grendel-sival-sdk tarball's
 	  common/src/err.c
 
+config TT_GR_TELEMETRY
+	bool "Grendel telemetry"
+	depends on TT_GR_SMC && TT_MSGQUEUE
+	depends on DT_HAS_TENSTORRENT_GRENDEL_SMC_DMA_ENABLED
+	select DMA
+	help
+	  Telemetry items that components define with GR_TELEM_ITEM_DEFINE,
+	  pushed with their descriptors and static values into a host buffer
+	  over PCIe. The host starts and stops pushing with
+	  TT_SMC_MSG_GR_TELEMETRY.
+
+if TT_GR_TELEMETRY
+
+config TT_GR_TELEMETRY_MOCK
+	bool "Mock power and thermal telemetry"
+	default y
+	help
+	  Publish fixed power and thermal values until the real sensors are
+	  wired up.
+
+config TT_GR_TELEMETRY_MAX_ITEMS
+	int "Maximum static or dynamic telemetry items"
+	default 32
+	help
+	  Size of the staging buffer for one frame or the static block.
+
+config TT_GR_TELEMETRY_PUSH_PERIOD_DEFAULT_MS
+	int "Default push period (ms)"
+	default 100
+	help
+	  Push period used when the host requests a period of 0.
+
+config TT_GR_TELEMETRY_PUSH_PERIOD_MIN_MS
+	int "Minimum push period (ms)"
+	default 10
+
+config TT_GR_TELEMETRY_DMA_CHANNEL
+	int "SMC DMA channel for pushing telemetry"
+	default 15
+
+config TT_GR_TELEMETRY_HOST_WINDOW_BASE
+	hex "Chip address of host IOVA 0"
+	default 0x0
+	help
+	  Base of the outbound PCIe window through which the SMC DMA reaches
+	  host memory. Added to the host buffer IOVA.
+
+endif # TT_GR_TELEMETRY
+
 config TT_GR_SMC_LOG_BRIDGE
 	bool "Grendel SMC log bridge"
 	depends on LOG
